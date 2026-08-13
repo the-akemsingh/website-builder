@@ -5,7 +5,20 @@
   "devDependencies": {
     "@types/bun": "latest"
   },
+  "scripts": {
+    "dev": "bun run src/index.ts"
+  },
   "peerDependencies": {
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@google/genai": "^2.16.0",
+    "@types/cors": "^2.8.19",
+    "@types/dockerode": "^4.0.1",
+    "@types/express": "^5.0.6",
+    "cors": "^2.8.6",
+    "dockerode": "^5.0.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
   }
 }
