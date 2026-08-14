@@ -100,7 +100,7 @@ app.listen(PORT, "0.0.0.0", () => {
 });
     ]]> </file>
 
-  < file path = ".env.example" > <![CDATA[
+  < file path = ".env.example" ><![CDATA[
     PORT=3000
   ]]> </file>
     </files>
