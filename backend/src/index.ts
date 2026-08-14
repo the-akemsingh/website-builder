@@ -2,9 +2,12 @@ import express from 'express'
 import cors from 'cors'
 import RandomIdGenerator from './utils/randomIdGenerator';
 import { config } from './config';
-import getProjectTemplate from './ai/client';
+import { getProjectTemplate, invokeLLMWithTools } from './ai/client';
 import { node } from './templates/nodejs/template';
 import { next } from './templates/nextjs/template';
+import { SandboxContainerManager } from './sandbox/sandboxContainerManager';
+import createFileStructure from './sandbox/createFileStructureInContainer';
+import { getAiTools } from './ai/tools';
 
 const app = express();
 app.use(express.json())
@@ -29,29 +32,19 @@ app.post("/new-chat", async (req, res) => {
             res.sendStatus(400)
             return
         }
-        const chatId = RandomIdGenerator();
+        const projectId = RandomIdGenerator();
         const templateName = await getProjectTemplate(prompt);
-        const template = templateName === "node" ? node : "next"
+        const template = templateName === "node" ? node : next
 
-        //1 first start a container using node:22 image   
+        const containerManager = SandboxContainerManager.getInstance();
+        const projectContainer = await containerManager.createContainer(projectId)
+        await createFileStructure(projectContainer, template)
+        const tools = getAiTools(projectId);
 
-        //2 generate template files in container
+        const response = await invokeLLMWithTools(prompt, template, tools)
+        res.send({ response })
+        return;
 
-        //3 write methods to manipulate files inside container
-
-        //4 expose methods as tools for llm :
-        // explore this : 
-        // Closure/scope — when setting up the AI tools for a chat session, wrap them so chatId is already bound. The AI doesn't need to know about it:
-        // he AI agent only deals with relative paths, and the chatId scoping is handled transparently on your server side. This also prevents the AI from accidentally (or hallucinating) accessing another user's project.
-        // example : // In your chat handler, bind chatId once:
-        // const tools = {
-        //     getFileContent: (path: string) => getFileContent(chatId, path),
-        //     writeFileContent: (path: string, content: string) => writeFileContent(chatId, path, content),
-        //     // ...
-        // }
-
-        //5 send ai the template,ai tools,user prompt :
-        // llm will not get the projectId - it only returns in reponse the tool_name: we handle the projectId
     } catch (e) {
         console.log("error in chat endpoint", e)
         res.sendStatus(500);
