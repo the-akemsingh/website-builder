@@ -1,7 +1,6 @@
 import type Dockerode from "dockerode"
 import createSandboxContainer from "./createContainer"
 import type IContainer from "../types/IContainer"
-import createFileStructure from "./createFileStructureInContainer"
 
 
 // we can keep record of which container belongs to which project using projectId. 
