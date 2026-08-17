@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, type Content } from '@google/genai';
 import { config } from '../config';
 import type { ITool } from '../types/ITool';
 
@@ -55,38 +55,120 @@ export async function getProjectTemplate(prompt: string): Promise<string> {
         if (response.text) {
             return response.text.toLowerCase().trim();
         }
-        return "";
+        return "node";
     } catch (error) {
         console.error("Error generating content:", error);
-        return ""
+        return "node"
     }
 }
 
 //the real project builder function 
 //we can implement custom loop to stream intermediate progress to client side - we have to use ws or sse
-//we are not saving history right now
-export async function invokeLLMWithTools(userPrompt: string, template: string, tools: ITool[]) {
+export async function invokeLLM(
+    userPrompt: string,
+    tools: ITool[],
+    chatHistory: Content[] = [],
+    template?: string
+): Promise<{ response: string, newHistory: Content[] }> {
     try {
-        const geminiTools = tools.map(t => ({
-            functionDeclarations: [t.declaration],
-            functions: { [t.declaration.name]: t.execute }
-        }));
+        const geminiTools = [{
+            functionDeclarations: tools.map(t => t.declaration)
+        }];
+
+        const systemInstruction = template
+            ? `You are a website builder AI working inside a Docker container at /workspace.
+Use the provided tools (readFile, writeFile, deleteFile) to read, write, and delete files to build the user's requested website.
+
+The project has been scaffolded with the following template:
+${template}
+
+Guidelines:
+- Always use readFile to inspect existing files before modifying them.
+- Use writeFile to create or update files with complete content.
+- Use deleteFile to remove files that are no longer needed.
+- Make sure all imports and dependencies are correct.
+- Follow the project's existing code style and conventions.`
+            : `You are a website builder AI working inside a Docker container at /workspace.
+Use the provided tools (readFile, writeFile, deleteFile) to read, write, and delete files to build the user's requested website.
+
+Guidelines:
+- Always use readFile to inspect existing files before modifying them.
+- Use writeFile to create or update files with complete content.
+- Use deleteFile to remove files that are no longer needed.
+- Make sure all imports and dependencies are correct.
+- Follow the project's existing code style and conventions.`;
+
         const chat = llmClient.chats.create({
             model: "gemini-2.5-flash",
             config: {
-                systemInstruction: `You are a website builder AI. You are working inside a Docker container at /workspace.
-Use the provided tools to read, write, and delete files to build the user's requested website.
-The project template is already set up. Use readFile to check existing files before modifying them.
-Always use writeFile to create or update files.`,
+                systemInstruction,
                 tools: geminiTools
+            },
+            history: chatHistory
+        });
+
+        // Function calling loop: keep executing tools until we get a final text response
+        let message: string | any[] = userPrompt;
+        let finalResponse: string;
+        const MAX_TOOL_ROUNDS = 30; // safety cap so the agent can never loop forever
+        let toolRounds = 0;
+        while (true) {
+            const response = await chat.sendMessage({ message });
+            const parts = response.candidates?.[0]?.content?.parts ?? [];
+            const functionCalls = parts.filter(part => part.functionCall).map(part => part.functionCall!);
+
+            // No tool calls - return the final text response
+            if (functionCalls.length === 0) {
+                finalResponse = response.text || "";
+                break;
             }
-        })
 
-        const response = await chat.sendMessage({ message: userPrompt });
+            if (++toolRounds > MAX_TOOL_ROUNDS) {
+                finalResponse = "Stopped: the agent exceeded the maximum number of tool execution rounds.";
+                break;
+            }
 
-        return response.text || "";
+            // Execute each tool call and collect responses
+            const toolResponses: any[] = [];
+            for (const fnCall of functionCalls) {
+                const tool = tools.find(tool => tool.declaration.name === fnCall.name);
+                if (!tool) {
+                    toolResponses.push({
+                        functionResponse: {
+                            name: fnCall.name,
+                            response: { error: `Unknown tool: ${fnCall.name}` }
+                        }
+                    });
+                    continue;
+                }
+
+                try {
+                    const result = await tool.execute(fnCall.args || {});
+                    toolResponses.push({
+                        functionResponse: {
+                            name: fnCall.name,
+                            response: { result }
+                        }
+                    });
+                } catch (err: any) {
+                    toolResponses.push({
+                        functionResponse: {
+                            name: fnCall.name,
+                            response: { error: err.message || "Tool execution failed" }
+                        }
+                    });
+                }
+            }
+            // Send tool responses back to continue the loop
+            message = toolResponses;
+        }
+        const newHistory = chat.getHistory();
+        return { response: finalResponse, newHistory }
     } catch (error) {
         console.error("Error generating content:", error);
-        return;
+        return {
+            response: "",
+            newHistory: []
+        };
     }
 }

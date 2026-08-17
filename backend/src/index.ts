@@ -2,12 +2,14 @@ import express from 'express'
 import cors from 'cors'
 import RandomIdGenerator from './utils/randomIdGenerator';
 import { config } from './config';
-import { getProjectTemplate, invokeLLMWithTools } from './ai/client';
+import { getProjectTemplate, invokeLLM } from './ai/client';
 import { node } from './templates/nodejs/template';
 import { next } from './templates/nextjs/template';
 import { SandboxContainerManager } from './sandbox/sandboxContainerManager';
 import createFileStructure from './sandbox/createFileStructureInContainer';
 import { getAiTools } from './ai/tools';
+import getProjectPort from './utils/getProjectPort';
+import { ChatHistory } from './memory/chatHistory';
 
 const app = express();
 app.use(express.json())
@@ -25,41 +27,50 @@ app.get("/health", (req, res) => {
     return
 })
 
-app.post("/new-chat", async (req, res) => {
+// IN-FUTURE: we have to eventually move to websockets to stream llm reponse and logs - as we can face server timeout problem and also cant hang request for too long
+
+app.post("/chat", async (req, res) => {
     try {
-        const { prompt } = req.body;
+        let { prompt, projectId } = req.body;
         if (!prompt) {
             res.sendStatus(400)
             return
         }
-        const projectId = RandomIdGenerator();
-        const templateName = await getProjectTemplate(prompt);
-        const template = templateName === "node" ? node : next
 
-        const containerManager = SandboxContainerManager.getInstance();
-        const projectContainer = await containerManager.createContainer(projectId)
-        await createFileStructure(projectContainer, template)
-        const tools = getAiTools(projectId);
+        const chatHistoryManager = ChatHistory.getInstance()
+        const isNewChat = !projectId || !chatHistoryManager.getChat(projectId);
 
-        const response = await invokeLLMWithTools(prompt, template, tools)
-        res.send({ response })
-        return;
+        if (isNewChat) {
+            projectId = RandomIdGenerator();
+            const templateName = await getProjectTemplate(prompt);
+            const template = templateName === "node" ? node : next
 
-    } catch (e) {
-        console.log("error in chat endpoint", e)
-        res.sendStatus(500);
-        return;
-    }
-})
+            chatHistoryManager.createChat(projectId, templateName as 'node' | "next")
+            const containerManager = SandboxContainerManager.getInstance();
+            const PORT = getProjectPort(templateName)
+            const projectContainer = await containerManager.createContainer(projectId, PORT)
+            await createFileStructure(projectContainer, template)
+            const tools = getAiTools(projectId);
+            const { response, newHistory } = await invokeLLM(prompt, tools, [], template)
 
-app.post("/chat/:chatId", async (req, res) => {
-    try {
-        const { prompt } = req.body;
-        const { chatId } = req.params
-        if (!prompt || chatId) {
-            res.sendStatus(400)
-            return
+            for (const content of newHistory) {
+                chatHistoryManager.addMessage(projectId, content)
+            }
+
+            res.send({ projectId, response })
+            return;
         }
+
+        const tools = getAiTools(projectId);
+        const chatHistory = chatHistoryManager.getChat(projectId)!.history;
+        const { response, newHistory } = await invokeLLM(prompt, tools, chatHistory)
+
+        for (const content of newHistory) {
+            chatHistoryManager.addMessage(projectId, content)
+        }
+
+        res.send({ projectId, response })
+        return;
 
     } catch (e) {
         console.log("error in chat endpoint", e)
