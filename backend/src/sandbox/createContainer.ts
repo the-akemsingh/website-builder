@@ -1,5 +1,4 @@
-import Docker from "dockerode";
-const docker = new Docker();
+import { docker } from "./dockerClient";
 
 
 //this just creates a container using node:22 image

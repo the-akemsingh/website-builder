@@ -21,17 +21,88 @@ export class SandboxContainerManager {
         return SandboxContainerManager.instance
     }
 
-    public async createContainer(projectId: string): Promise<Dockerode.Container> {
-        const container = await createSandboxContainer(projectId);
+    getContainer(projectId: string) {
+        return this.containers.find((container) => container.projectId === projectId)?.container
+    }
+
+    public async createContainer(projectId: string, port: number): Promise<Dockerode.Container> {
+        const container = await createSandboxContainer(projectId, port);
+        const containerInfo = await container.inspect();
+        const hostPort = containerInfo.NetworkSettings.Ports[`${port}/tcp`][0].HostPort;
         this.containers.push({
             projectId,
-            container
+            container,
+            hostPort: Number(hostPort),
+            url: `http://localhost:${hostPort}`
         })
         return container;
     }
 
-    getContainer(projectId: string) {
-        return this.containers.find((container) => container.projectId === projectId)?.container
+    async installDependencies(projectId: string, dependencyName?: string): Promise<void> {
+        const container = this.getContainer(projectId);
+        if (!container) throw new Error("Container not found");
+        // No TTY here: a TTY makes npm wait on interactive behavior and swallows exit signals.
+        const exec = await container.exec({
+            Cmd: dependencyName ? ["npm", "install", dependencyName] : ["npm", "install"],
+            WorkingDir: "/workspace",
+            AttachStdout: true,
+            AttachStderr: true
+        });
+
+        const stream = await exec.start({});
+        return new Promise((resolve, reject) => {
+            // Hard timeout so a hung npm/stream can never block the agent loop forever
+            const timeout = setTimeout(() => {
+                stream.destroy();
+                reject(new Error("npm install timed out after 10 minutes"));
+            }, 10 * 60 * 1000);
+
+            // stream npm output to server logs for visibility
+            container.modem.demuxStream(stream, process.stdout, process.stderr);
+
+            stream.on("error", (err) => {
+                clearTimeout(timeout);
+                reject(new Error(`Stream error during npm install: ${err.message}`));
+            });
+            stream.on("end", async () => {
+                clearTimeout(timeout);
+                try {
+                    const inspectData = await exec.inspect();
+                    if (inspectData.ExitCode === 0) {
+                        resolve();
+                    } else {
+                        reject(new Error(`npm install failed with exit code ${inspectData.ExitCode}`));
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    async startDevServer(projectId: string) {
+        const container = this.getContainer(projectId);
+        if (!container) throw new Error("Container not found");
+
+        const exec = await container.exec({
+            Cmd: ["npm", "run", "dev"],
+            WorkingDir: "/workspace",
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: true
+        });
+
+        // Start execution without blocking on process completion
+        const stream = await exec.start({
+            Tty: true
+        });
+
+        // We can broadcast logs over WebSockets to client side
+        stream.on("error", (err) => {
+            console.error(`[Dev Server Error ${projectId}]:`, err);
+        });
+
+        return exec; // instance - can inspect or kill it later
     }
 
     //for file updation and new file creation 
