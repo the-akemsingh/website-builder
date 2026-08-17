@@ -4,6 +4,7 @@ dotenv.config();
 interface Config {
     apiServerPort: number;
     geminiApiKey: string;
+    dockerSocketPath: string;
 }
 
 class ConfigLoader {
@@ -14,6 +15,7 @@ class ConfigLoader {
         this.config = {
             apiServerPort: Number(process.env.API_SERVER_PORT) || 3000,
             geminiApiKey: process.env.GEMINI_API_KEY || '',
+            dockerSocketPath: process.env.DOCKER_SOCKET_PATH || '//./pipe/docker_engine',
         };
     }
 

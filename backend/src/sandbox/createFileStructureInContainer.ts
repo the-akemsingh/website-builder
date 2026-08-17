@@ -27,5 +27,10 @@ async function createFileStructure(container: Dockerode.Container, template: str
         });
     });
     await Promise.all(allPromises)
+    await container.exec({
+        Cmd: ["npm", "run", "dev"],
+        AttachStdout: true,
+        AttachStderr: true,
+    });
 }
 export default createFileStructure;
