@@ -76,9 +76,32 @@ export function getAiTools(projectId: string): ITool[] {
         }
     };
 
+    const installDependency: ITool = {
+        declaration: {
+            name: "installDependency",
+            description: "Install a dependency in the project. Provide the package name (e.g. 'axios', 'lodash'). If no package name is provided, runs npm install to install all dependencies from package.json.",
+            parameters: {
+                type: Type.OBJECT,
+                properties: {
+                    package: {
+                        type: Type.STRING,
+                        description: "The name of the npm package to install, e.g. 'axios'. Leave empty to install all dependencies from package.json."
+                    }
+                },
+                required: []
+            }
+        },
+        execute: async (args) => {
+            const pkg = args.package as string | undefined;
+            await manager.installDependencies(projectId, pkg || undefined);
+            return pkg
+                ? `Dependency installed successfully: ${pkg}`
+                : `All dependencies installed successfully from package.json`;
+        }
+    };
+
     // TODO: 
-    // tools for installing dependencies
     // build project
     // run project
-    return [readFile, writeFile, deleteFile];
+    return [readFile, writeFile, deleteFile, installDependency];
 }
