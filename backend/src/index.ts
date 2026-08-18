@@ -41,21 +41,33 @@ app.post("/chat", async (req, res) => {
         const isNewChat = !projectId || !chatHistoryManager.getChat(projectId);
 
         if (isNewChat) {
+            console.log("new chat started")
             projectId = RandomIdGenerator();
             const templateName = await getProjectTemplate(prompt);
             const template = templateName === "node" ? node : next
+            console.log("templateName", templateName)
 
             chatHistoryManager.createChat(projectId, templateName as 'node' | "next")
             const containerManager = SandboxContainerManager.getInstance();
             const PORT = getProjectPort(templateName)
+            console.log("PORT", PORT)
             const projectContainer = await containerManager.createContainer(projectId, PORT)
+            console.log("projectContainer created")
             await createFileStructure(projectContainer, template)
+            console.log("file structure created")
             const tools = getAiTools(projectId);
+            console.log("invoking LLM")
             const { response, newHistory } = await invokeLLM(prompt, tools, [], template)
-
+            console.log("LLM response received")
+            await containerManager.startDevServer(projectId)
+            console.log("dev server started")
+            setTimeout(() => {
+                containerManager.stopDevServer(projectId);
+            }, 30 * 60 * 1000);
             for (const content of newHistory) {
                 chatHistoryManager.addMessage(projectId, content)
             }
+            console.log("chat history updated")
 
             res.send({ projectId, response })
             return;

@@ -71,13 +71,14 @@ export async function invokeLLM(
     template?: string
 ): Promise<{ response: string, newHistory: Content[] }> {
     try {
+        console.log("inside invokeLLM")
         const geminiTools = [{
             functionDeclarations: tools.map(t => t.declaration)
         }];
 
         const systemInstruction = template
             ? `You are a website builder AI working inside a Docker container at /workspace.
-Use the provided tools (readFile, writeFile, deleteFile) to read, write, and delete files to build the user's requested website.
+Use the provided tools (readFile, writeFile, deleteFile,installDependencies) to read, write, delete files and to install dependencies to build the user's requested website.
 
 The project has been scaffolded with the following template:
 ${template}
@@ -86,15 +87,17 @@ Guidelines:
 - Always use readFile to inspect existing files before modifying them.
 - Use writeFile to create or update files with complete content.
 - Use deleteFile to remove files that are no longer needed.
+- Use installDependencies to install dependencies.
 - Make sure all imports and dependencies are correct.
 - Follow the project's existing code style and conventions.`
             : `You are a website builder AI working inside a Docker container at /workspace.
-Use the provided tools (readFile, writeFile, deleteFile) to read, write, and delete files to build the user's requested website.
+Use the provided tools (readFile, writeFile, deleteFile,installDependencies) to read, write, delete files and to install dependencies to build the user's requested website.
 
 Guidelines:
 - Always use readFile to inspect existing files before modifying them.
 - Use writeFile to create or update files with complete content.
 - Use deleteFile to remove files that are no longer needed.
+- Use installDependencies to install dependencies.
 - Make sure all imports and dependencies are correct.
 - Follow the project's existing code style and conventions.`;
 
@@ -106,23 +109,27 @@ Guidelines:
             },
             history: chatHistory
         });
-
+        console.log("chat created")
         // Function calling loop: keep executing tools until we get a final text response
         let message: string | any[] = userPrompt;
         let finalResponse: string;
         const MAX_TOOL_ROUNDS = 30; // safety cap so the agent can never loop forever
         let toolRounds = 0;
         while (true) {
+            console.log("sending message to chat")
             const response = await chat.sendMessage({ message });
+            console.log("response received")
             const parts = response.candidates?.[0]?.content?.parts ?? [];
             const functionCalls = parts.filter(part => part.functionCall).map(part => part.functionCall!);
 
             // No tool calls - return the final text response
             if (functionCalls.length === 0) {
+                console.log("no tool calls - returning final response")
                 finalResponse = response.text || "";
                 break;
             }
 
+            console.log("tool calls found - executing tools")
             if (++toolRounds > MAX_TOOL_ROUNDS) {
                 finalResponse = "Stopped: the agent exceeded the maximum number of tool execution rounds.";
                 break;
@@ -131,6 +138,7 @@ Guidelines:
             // Execute each tool call and collect responses
             const toolResponses: any[] = [];
             for (const fnCall of functionCalls) {
+                console.log("executing tool", fnCall.name)
                 const tool = tools.find(tool => tool.declaration.name === fnCall.name);
                 if (!tool) {
                     toolResponses.push({
@@ -141,6 +149,7 @@ Guidelines:
                     });
                     continue;
                 }
+                console.log("tool execution started")
 
                 try {
                     const result = await tool.execute(fnCall.args || {});
@@ -150,6 +159,7 @@ Guidelines:
                             response: { result }
                         }
                     });
+                    console.log("tool execution completed")
                 } catch (err: any) {
                     toolResponses.push({
                         functionResponse: {
@@ -157,12 +167,15 @@ Guidelines:
                             response: { error: err.message || "Tool execution failed" }
                         }
                     });
+                    console.log("tool execution failed")
                 }
             }
             // Send tool responses back to continue the loop
             message = toolResponses;
+            console.log("tool responses sent back to continue the loop")
         }
         const newHistory = chat.getHistory();
+        console.log("new history created")
         return { response: finalResponse, newHistory }
     } catch (error) {
         console.error("Error generating content:", error);

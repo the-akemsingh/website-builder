@@ -80,7 +80,7 @@ export class SandboxContainerManager {
         });
     }
 
-    async startDevServer(projectId: string) {
+    public async startDevServer(projectId: string) {
         const container = this.getContainer(projectId);
         if (!container) throw new Error("Container not found");
 
@@ -102,7 +102,26 @@ export class SandboxContainerManager {
             console.error(`[Dev Server Error ${projectId}]:`, err);
         });
 
-        return exec; // instance - can inspect or kill it later
+        return exec;
+    }
+    
+    //Docker Engine API does not provide a direct exec.kill() method on exec instances. Calling stream.destroy() only closes your host connection to the logs—the dev server will keep running in the background inside the container.
+    public async stopDevServer(projectId: string): Promise<void> {
+        const container = this.getContainer(projectId);
+        if (!container) throw new Error("Container not found");
+
+        // Forcefully kill any process matching 'npm' or 'node' running dev scripts
+        const stopExec = await container.exec({
+            Cmd: ["sh", "-c", "pkill -f 'npm run dev' || pkill -f 'next-dev' || pkill -f 'vite'"],
+            WorkingDir: "/workspace"
+        });
+
+        const stream = await stopExec.start({});
+
+        return new Promise((resolve) => {
+            stream.on("end", resolve);
+            stream.on("error", resolve);
+        });
     }
 
     //for file updation and new file creation 

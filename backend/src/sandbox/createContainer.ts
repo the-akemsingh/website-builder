@@ -11,7 +11,7 @@ async function createSandboxContainer(projectId: string, port: number) {
         Cmd: ["tail", "-f", "/dev/null"],
         WorkingDir: "/workspace",
         HostConfig: {
-            Memory: 512 * 1024 * 1024, // Restricts to 512 MB RAM
+            // Memory: 512 * 1024 * 1024, // Restricts to 512 MB RAM
             NanoCpus: 1_000_000_000,   // Restricts CPU usage to 1 core
 
             // bind container port to a random host port
