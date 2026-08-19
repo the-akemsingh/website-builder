@@ -25,7 +25,7 @@ export class SandboxContainerManager {
         return this.containers.find((container) => container.projectId === projectId)?.container
     }
 
-    public async createContainer(projectId: string, port: number): Promise<Dockerode.Container> {
+    public async createContainer(projectId: string, port: number): Promise<{projectContainer:Dockerode.Container,hostPort:string}> {
         const container = await createSandboxContainer(projectId, port);
         const containerInfo = await container.inspect();
         const hostPort = containerInfo.NetworkSettings.Ports[`${port}/tcp`][0].HostPort;
@@ -35,7 +35,7 @@ export class SandboxContainerManager {
             hostPort: Number(hostPort),
             url: `http://localhost:${hostPort}`
         })
-        return container;
+        return {projectContainer:container,hostPort};
     }
 
     async installDependencies(projectId: string, dependencyName?: string): Promise<void> {

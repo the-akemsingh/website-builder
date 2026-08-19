@@ -51,7 +51,7 @@ app.post("/chat", async (req, res) => {
             const containerManager = SandboxContainerManager.getInstance();
             const PORT = getProjectPort(templateName)
             console.log("PORT", PORT)
-            const projectContainer = await containerManager.createContainer(projectId, PORT)
+            const { projectContainer, hostPort } = await containerManager.createContainer(projectId, PORT)
             console.log("projectContainer created")
             await createFileStructure(projectContainer, template)
             console.log("file structure created")
@@ -69,7 +69,7 @@ app.post("/chat", async (req, res) => {
             }
             console.log("chat history updated")
 
-            res.send({ projectId, response })
+            res.send({ projectId, response, projectUrl: `http://localhost:${hostPort}` })
             return;
         }
 
@@ -81,7 +81,7 @@ app.post("/chat", async (req, res) => {
             chatHistoryManager.addMessage(projectId, content)
         }
 
-        res.send({ projectId, response })
+        res.send({ response })
         return;
 
     } catch (e) {
