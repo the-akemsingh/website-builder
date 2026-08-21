@@ -21,11 +21,11 @@ export class SandboxContainerManager {
         return SandboxContainerManager.instance
     }
 
-    getContainer(projectId: string) {
+    private getContainer(projectId: string) {
         return this.containers.find((container) => container.projectId === projectId)?.container
     }
 
-    public async createContainer(projectId: string, port: number): Promise<{projectContainer:Dockerode.Container,hostPort:string}> {
+    async createContainer(projectId: string, port: number): Promise<{ projectContainer: Dockerode.Container, hostPort: string }> {
         const container = await createSandboxContainer(projectId, port);
         const containerInfo = await container.inspect();
         const hostPort = containerInfo.NetworkSettings.Ports[`${port}/tcp`][0].HostPort;
@@ -35,7 +35,7 @@ export class SandboxContainerManager {
             hostPort: Number(hostPort),
             url: `http://localhost:${hostPort}`
         })
-        return {projectContainer:container,hostPort};
+        return { projectContainer: container, hostPort };
     }
 
     async installDependencies(projectId: string, dependencyName?: string): Promise<void> {
@@ -80,7 +80,78 @@ export class SandboxContainerManager {
         });
     }
 
-    public async startDevServer(projectId: string) {
+    async buildProject(projectId: string): Promise<{
+        success: boolean;
+        exitCode: number | null;
+        output: string;
+    }> {
+        const container = this.getContainer(projectId);
+
+        if (!container) {
+            throw new Error("Container not found");
+        }
+
+        const exec = await container.exec({
+            Cmd: ["npm", "run", "build"],
+            WorkingDir: "/workspace",
+            AttachStdout: true,
+            AttachStderr: true
+        });
+
+        const stream = await exec.start({});
+
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                stream.destroy();
+                reject(new Error("Build timed out after 10 minutes"));
+            }, 10 * 60 * 1000);
+
+            let stdout = "";
+            let stderr = "";
+
+            container.modem.demuxStream(
+                stream,
+                {
+                    write: (chunk: Buffer) => {
+                        stdout += chunk.toString("utf8");
+                        process.stdout.write(chunk);
+                    }
+                },
+                {
+                    write: (chunk: Buffer) => {
+                        stderr += chunk.toString("utf8");
+                        process.stderr.write(chunk);
+                    }
+                }
+            );
+
+            stream.on("error", (err) => {
+                clearTimeout(timeout);
+                reject(
+                    new Error(`Stream error during build: ${err.message}`)
+                );
+            });
+
+            stream.on("end", async () => {
+                clearTimeout(timeout);
+
+                try {
+                    const inspectData = await exec.inspect();
+
+                    resolve({
+                        success: inspectData.ExitCode === 0,
+                        exitCode: inspectData.ExitCode,
+                        output: `${stdout}\n${stderr}`.trim()
+                    });
+
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    async startDevServer(projectId: string) {
         const container = this.getContainer(projectId);
         if (!container) throw new Error("Container not found");
 
@@ -104,9 +175,9 @@ export class SandboxContainerManager {
 
         return exec;
     }
-    
+
     //Docker Engine API does not provide a direct exec.kill() method on exec instances. Calling stream.destroy() only closes your host connection to the logs—the dev server will keep running in the background inside the container.
-    public async stopDevServer(projectId: string): Promise<void> {
+    async stopDevServer(projectId: string): Promise<void> {
         const container = this.getContainer(projectId);
         if (!container) throw new Error("Container not found");
 
@@ -125,7 +196,7 @@ export class SandboxContainerManager {
     }
 
     //for file updation and new file creation 
-    public async writeFileInContainer(projectId: string, relativePath: string, content: string) {
+    async writeFileInContainer(projectId: string, relativePath: string, content: string) {
         const container = this.getContainer(projectId);
         if (!container) return;
         const fullPath = `/workspace/${relativePath}`
@@ -147,7 +218,7 @@ export class SandboxContainerManager {
         });
     }
 
-    public async readFileInContainer(projectId: string, relativePath: string): Promise<string> {
+    async readFileInContainer(projectId: string, relativePath: string): Promise<string> {
         const container = this.getContainer(projectId);
         if (!container) {
             new Error(`Respective container not found for project : ${projectId}`)
@@ -191,7 +262,7 @@ export class SandboxContainerManager {
         });
     }
 
-    public async deleteFileInContainer(projectId: string, relativePath: string): Promise<void> {
+    async deleteFileInContainer(projectId: string, relativePath: string): Promise<void> {
         const container = this.getContainer(projectId);
         if (!container) return;
         const fullPath = `/workspace/${relativePath}`

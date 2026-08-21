@@ -100,8 +100,21 @@ export function getAiTools(projectId: string): ITool[] {
         }
     };
 
-    // TODO: 
-    // build project
-    // run project
-    return [readFile, writeFile, deleteFile, installDependency];
+    const buildProject: ITool = {
+        declaration: {
+            name: "buildProject",
+            description:
+                "Build the project using `npm run build`. Returns whether the build succeeded and the build output/errors.",
+            parameters: {
+                type: Type.OBJECT,
+                properties: {},
+                required: []
+            }
+        },
+        execute: async () => {
+            const result = await manager.buildProject(projectId);
+            return JSON.stringify(result);
+        }
+    };
+    return [readFile, writeFile, deleteFile, installDependency, buildProject];
 }

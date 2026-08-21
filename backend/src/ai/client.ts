@@ -78,7 +78,7 @@ export async function invokeLLM(
 
         const systemInstruction = template
             ? `You are a website builder AI working inside a Docker container at /workspace.
-Use the provided tools (readFile, writeFile, deleteFile,installDependencies) to read, write, delete files and to install dependencies to build the user's requested website.
+Use the provided tools (readFile, writeFile, deleteFile,installDependencies,buildProject) to read, write, delete files and to install dependencies to build the user's requested website.
 
 The project has been scaffolded with the following template:
 ${template}
@@ -88,16 +88,18 @@ Guidelines:
 - Use writeFile to create or update files with complete content.
 - Use deleteFile to remove files that are no longer needed.
 - Use installDependencies to install dependencies.
+- Use buildProject to generate the build of the project and get outcome if it succeded or failed.
 - Make sure all imports and dependencies are correct.
 - Follow the project's existing code style and conventions.`
             : `You are a website builder AI working inside a Docker container at /workspace.
-Use the provided tools (readFile, writeFile, deleteFile,installDependencies) to read, write, delete files and to install dependencies to build the user's requested website.
+Use the provided tools (readFile, writeFile, deleteFile,installDependencies,buildProject) to read, write, delete files and to install dependencies to build the user's requested website.
 
 Guidelines:
 - Always use readFile to inspect existing files before modifying them.
 - Use writeFile to create or update files with complete content.
 - Use deleteFile to remove files that are no longer needed.
 - Use installDependencies to install dependencies.
+- Use buildProject to generate the build of the project and get outcome if it succeded or failed.
 - Make sure all imports and dependencies are correct.
 - Follow the project's existing code style and conventions.`;
 

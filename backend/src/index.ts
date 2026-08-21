@@ -32,6 +32,7 @@ app.get("/health", (req, res) => {
 app.post("/chat", async (req, res) => {
     try {
         let { prompt, projectId } = req.body;
+        console.log("req rec ----------",prompt,projectId)
         if (!prompt) {
             res.sendStatus(400)
             return
