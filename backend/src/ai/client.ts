@@ -34,8 +34,7 @@ export async function getProjectTemplate(prompt: string): Promise<string> {
                 node
                 or
                 next
-            `
-            ,
+            `,
             config: {
                 systemInstruction:
                     `
@@ -62,16 +61,18 @@ export async function getProjectTemplate(prompt: string): Promise<string> {
     }
 }
 
-//the real project builder function 
+//the real project builder function
 //we can implement custom loop to stream intermediate progress to client side - we have to use ws or sse
 export async function invokeLLM(
     userPrompt: string,
     tools: ITool[],
     chatHistory: Content[] = [],
-    template?: string
+    template?: string,
+    onEvent?: (event: any) => void
 ): Promise<{ response: string, newHistory: Content[] }> {
     try {
         console.log("inside invokeLLM")
+        onEvent?.({ type: 'log', message: 'Starting AI processing...' });
         const geminiTools = [{
             functionDeclarations: tools.map(t => t.declaration)
         }];
@@ -141,6 +142,7 @@ Guidelines:
             const toolResponses: any[] = [];
             for (const fnCall of functionCalls) {
                 console.log("executing tool", fnCall.name)
+                onEvent?.({ type: 'toolStart', tool: fnCall.name });
                 const tool = tools.find(tool => tool.declaration.name === fnCall.name);
                 if (!tool) {
                     toolResponses.push({
@@ -149,6 +151,7 @@ Guidelines:
                             response: { error: `Unknown tool: ${fnCall.name}` }
                         }
                     });
+                    onEvent?.({ type: 'toolEnd', tool: fnCall.name, error: `Unknown tool: ${fnCall.name}` });
                     continue;
                 }
                 console.log("tool execution started")
@@ -162,6 +165,7 @@ Guidelines:
                         }
                     });
                     console.log("tool execution completed")
+                    onEvent?.({ type: 'toolEnd', tool: fnCall.name, result });
                 } catch (err: any) {
                     toolResponses.push({
                         functionResponse: {
@@ -170,6 +174,7 @@ Guidelines:
                         }
                     });
                     console.log("tool execution failed")
+                    onEvent?.({ type: 'toolEnd', tool: fnCall.name, error: err.message || "Tool execution failed" });
                 }
             }
             // Send tool responses back to continue the loop
@@ -178,9 +183,11 @@ Guidelines:
         }
         const newHistory = chat.getHistory();
         console.log("new history created")
+        onEvent?.({ type: 'log', message: 'Finished AI processing.' });
         return { response: finalResponse, newHistory }
     } catch (error) {
         console.error("Error generating content:", error);
+        onEvent?.({ type: 'error', message: 'Internal server error in AI processing' });
         return {
             response: "",
             newHistory: []

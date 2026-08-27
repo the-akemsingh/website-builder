@@ -7,13 +7,17 @@ import { node } from './templates/nodejs/template';
 import { next } from './templates/nextjs/template';
 import { SandboxContainerManager } from './sandbox/sandboxContainerManager';
 import createFileStructure from './sandbox/createFileStructureInContainer';
-import { getAiTools } from './ai/tools';
 import getProjectPort from './utils/getProjectPort';
 import { ChatHistory } from './memory/chatHistory';
+import WebSocket, { WebSocketServer } from 'ws';
+import handleChatMessage from './handleChatMessage';
 
 const app = express();
 app.use(express.json())
 app.use(cors());
+
+const PORT = config.get("apiServerPort");
+const PROJECTS_BASE_URL = config.get("projectsBaseUrl");
 
 try {
     config.validate();
@@ -22,67 +26,75 @@ try {
     process.exit(1);
 }
 
-app.get("/health", (req, res) => {
-    res.sendStatus(200);
-    return
+const httpServer = app.listen(PORT, () => {
+    console.log("api server running on port - ", PORT)
 })
 
-// IN-FUTURE: we have to eventually move to websockets to stream llm reponse and logs - as we can face server timeout problem and also cant hang request for too long
+const wss = new WebSocketServer({
+    server: httpServer
+})
 
+wss.on("connection", (socket: WebSocket, request: import('http').IncomingMessage) => {
+    console.log("A new client connected")
+    const url = new URL(request.url ?? '', `http://${request.headers.host}`)
+    const projectId = url.searchParams.get('projectId')
+    if (!projectId) {
+        console.log("WebSocket connection rejected: missing projectId")
+        socket.close(1008, "Missing projectId")
+        return
+    }
+
+    socket.on("message", async (message: string) => {
+        try {
+            const data = JSON.parse(message)
+            if (data.type === 'chat' && data.prompt) {
+                await handleChatMessage(socket, projectId, data.prompt)
+            } else {
+
+                socket.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }))
+            }
+        } catch (e) {
+            console.error("Error parsing WebSocket message:", e)
+            socket.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }))
+        }
+    })
+
+    socket.on("close", () => {
+        console.log(`A client disconnected: ${projectId}`)
+    })
+    socket.on("error", (error) => {
+        console.log("error occured in websocket server : ", error)
+    })
+})
+
+// only for creating new chats
 app.post("/chat", async (req, res) => {
     try {
-        let { prompt, projectId } = req.body;
-        console.log("req rec ----------",prompt,projectId)
+        let { prompt } = req.body;
         if (!prompt) {
             res.sendStatus(400)
             return
         }
-
         const chatHistoryManager = ChatHistory.getInstance()
-        const isNewChat = !projectId || !chatHistoryManager.getChat(projectId);
 
-        if (isNewChat) {
-            console.log("new chat started")
-            projectId = RandomIdGenerator();
-            const templateName = await getProjectTemplate(prompt);
-            const template = templateName === "node" ? node : next
-            console.log("templateName", templateName)
+        const projectId = RandomIdGenerator();
+        const templateName = await getProjectTemplate(prompt);
+        const template = templateName === "node" ? node : next
 
-            chatHistoryManager.createChat(projectId, templateName as 'node' | "next")
-            const containerManager = SandboxContainerManager.getInstance();
-            const PORT = getProjectPort(templateName)
-            console.log("PORT", PORT)
-            const { projectContainer, hostPort } = await containerManager.createContainer(projectId, PORT)
-            console.log("projectContainer created")
-            await createFileStructure(projectContainer, template)
-            console.log("file structure created")
-            const tools = getAiTools(projectId);
-            console.log("invoking LLM")
-            const { response, newHistory } = await invokeLLM(prompt, tools, [], template)
-            console.log("LLM response received")
-            await containerManager.startDevServer(projectId)
-            console.log("dev server started")
-            setTimeout(() => {
-                containerManager.stopDevServer(projectId);
-            }, 30 * 60 * 1000);
-            for (const content of newHistory) {
-                chatHistoryManager.addMessage(projectId, content)
-            }
-            console.log("chat history updated")
+        chatHistoryManager.createChat(projectId, templateName as 'node' | "next")
 
-            res.send({ projectId, response, projectUrl: `http://localhost:${hostPort}` })
-            return;
-        }
+        const containerManager = SandboxContainerManager.getInstance();
+        const port = getProjectPort(templateName)
+        const { projectContainer, hostPort } = await containerManager.createContainer(projectId, port)
 
-        const tools = getAiTools(projectId);
-        const chatHistory = chatHistoryManager.getChat(projectId)!.history;
-        const { response, newHistory } = await invokeLLM(prompt, tools, chatHistory)
+        await createFileStructure(projectContainer, template)
 
-        for (const content of newHistory) {
-            chatHistoryManager.addMessage(projectId, content)
-        }
+        await containerManager.startDevServer(projectId)
+        setTimeout(() => {
+            containerManager.stopDevServer(projectId);
+        }, 30 * 60 * 1000);
 
-        res.send({ response })
+        res.send({ projectId, projectUrl: `${PROJECTS_BASE_URL}:${hostPort}` })
         return;
 
     } catch (e) {
@@ -92,7 +104,7 @@ app.post("/chat", async (req, res) => {
     }
 })
 
-const PORT = config.get("apiServerPort");
-app.listen(PORT, () => {
-    console.log("api server running on port - ", PORT)
+app.get("/health", (_req, res) => {
+    res.sendStatus(200);
+    return
 })

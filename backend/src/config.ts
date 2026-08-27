@@ -5,6 +5,7 @@ interface Config {
     apiServerPort: number;
     geminiApiKey: string;
     dockerSocketPath: string;
+    projectsBaseUrl: string;
 }
 
 class ConfigLoader {
@@ -16,6 +17,7 @@ class ConfigLoader {
             apiServerPort: Number(process.env.API_SERVER_PORT) || 3000,
             geminiApiKey: process.env.GEMINI_API_KEY || '',
             dockerSocketPath: process.env.DOCKER_SOCKET_PATH || '//./pipe/docker_engine',
+            projectsBaseUrl: process.env.PROJECTS_BASE_URL || 'http://localhost',
         };
     }
 
