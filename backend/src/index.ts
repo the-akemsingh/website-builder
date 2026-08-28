@@ -89,6 +89,7 @@ app.post("/chat", async (req, res) => {
 
         await createFileStructure(projectContainer, template)
 
+        await containerManager.installDependencies(projectId)
         await containerManager.startDevServer(projectId)
         setTimeout(() => {
             containerManager.stopDevServer(projectId);

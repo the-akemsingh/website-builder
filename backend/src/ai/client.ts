@@ -10,7 +10,7 @@ const llmClient = new GoogleGenAI({
 export async function getProjectTemplate(prompt: string): Promise<string> {
     try {
         const response = await llmClient.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3.1-flash-lite",
             contents:
                 `
                 Choose the appropriate project template for the user's request.
@@ -105,7 +105,7 @@ Guidelines:
 - Follow the project's existing code style and conventions.`;
 
         const chat = llmClient.chats.create({
-            model: "gemini-2.5-flash",
+            model: "gemini-3.1-flash-lite",
             config: {
                 systemInstruction,
                 tools: geminiTools
