@@ -170,7 +170,7 @@ export class SandboxContainerManager {
 
         // We can broadcast logs over WebSockets to client side
         stream.on("data", (data) => {
-            console.error(`[Dev Server Error ${projectId}]:`, data);
+            console.log(`[Dev Server ${projectId}]:`, data.toString());
         });
         stream.on("error", (err) => {
             console.error(`[Dev Server Error ${projectId}]:`, err);
