@@ -1,15 +1,5 @@
-# backend
-
-To install dependencies:
-
-```bash
-bun install
-```
-
-To run:
-
-```bash
-bun run src/index.ts
-```
-
-This project was created using `bun init` in bun v1.1.30. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+todo :
+-delete the project after certain period of inactivity - to save memory and diskSpace
+-option to download sourceCode
+improvement :
+when installing the dependencies first time- rather then installing them - fetch them from objectstorage

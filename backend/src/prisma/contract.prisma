@@ -1,0 +1,33 @@
+// use prisma-next
+
+model User {
+  id        String             @id @default(uuid())
+  email     String             @unique
+  name      String?
+  googleId  String             @unique
+  createdAt TimestamptzString  @default(now())
+  updatedAt TimestamptzString  @default(now())
+  websites  Website[]
+}
+
+model Website{
+  id           String             @id
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateName String
+  title        String
+  createdAt    TimestamptzString  @default(now())
+  Messages     Message[]
+}
+
+model Message{
+  id                   String             @id @default(uuid())
+  websiteId            String
+  website              Website           @relation(fields:[websiteId],references:[id],onDelete:Cascade)
+  createdAt            TimestamptzString  @default(now())
+
+  role                 String
+  text                 String?
+  functionCallName     String?
+  functionCallResponse String?
+}

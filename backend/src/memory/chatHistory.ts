@@ -17,30 +17,30 @@ export class ChatHistory {
         return ChatHistory.instance
     }
 
-    getChat(projectId: string): IChatSession | undefined {
-        return this.chats.get(projectId)
+    getChat(websiteId: string): IChatSession | undefined {
+        return this.chats.get(websiteId)
     }
 
     
     //Add a message to the chat history.
     // Accepts full Content type to support text, functionCall, and functionResponse parts.
     //
-    addMessage(projectId: string, content: Content) {
-        const chatSession = this.chats.get(projectId)
+    addMessage(websiteId: string, content: Content) {
+        const chatSession = this.chats.get(websiteId)
         if (!chatSession) return;
         chatSession.history.push(content)
     }
 
     //Get the full chat history for a project.
-    getHistory(projectId: string): Content[] {
-        return this.chats.get(projectId)?.history ?? []
+    getHistory(websiteId: string): Content[] {
+        return this.chats.get(websiteId)?.history ?? []
     }
 
-    createChat(projectId: string, templateName: "node" | "next") {
-        this.chats.set(projectId, { projectId, history: [], templateName })
+    createChat(websiteId: string, templateName: "node" | "next") {
+        this.chats.set(websiteId, { websiteId, history: [], templateName })
     }
 
-    deleteChat(projectId: string) {
-        this.chats.delete(projectId)
+    deleteChat(websiteId: string) {
+        this.chats.delete(websiteId)
     }
 }

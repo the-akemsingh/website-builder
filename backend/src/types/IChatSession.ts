@@ -1,7 +1,7 @@
 import type { Content } from "@google/genai"
 
 export default interface IChatSession {
-    projectId: string,
+    websiteId: string,
     templateName: "node" | "next",
     history: Content[]
 }

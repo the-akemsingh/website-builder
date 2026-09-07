@@ -1,7 +1,7 @@
 import type Dockerode from "dockerode";
 
 export default interface IContainer {
-    projectId: string,
+    websiteId: string,
     container: Dockerode.Container,
     hostPort:number,
     url:string

@@ -6,6 +6,8 @@ interface Config {
     geminiApiKey: string;
     dockerSocketPath: string;
     projectsBaseUrl: string;
+    googleClientId: string;
+    jwtSecret: string;
 }
 
 class ConfigLoader {
@@ -18,6 +20,8 @@ class ConfigLoader {
             geminiApiKey: process.env.GEMINI_API_KEY || '',
             dockerSocketPath: process.env.DOCKER_SOCKET_PATH || '//./pipe/docker_engine',
             projectsBaseUrl: process.env.PROJECTS_BASE_URL || 'http://localhost',
+            googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+            jwtSecret: process.env.JWT_SECRET || '123456789'
         };
     }
 

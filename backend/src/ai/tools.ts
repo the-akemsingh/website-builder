@@ -2,7 +2,7 @@ import { Type } from '@google/genai';
 import { SandboxContainerManager } from "../sandbox/sandboxContainerManager";
 import type { ITool } from "../types/ITool";
 
-export function getAiTools(projectId: string): ITool[] {
+export function getAiTools(websiteId: string): ITool[] {
     const manager = SandboxContainerManager.getInstance();
 
     const readFile: ITool = {
@@ -21,7 +21,7 @@ export function getAiTools(projectId: string): ITool[] {
             }
         },
         execute: async (args) => {
-            const result = await manager.readFileInContainer(projectId, args.path as string);
+            const result = await manager.readFileInContainer(websiteId, args.path as string);
             return result;
         }
     };
@@ -47,7 +47,7 @@ export function getAiTools(projectId: string): ITool[] {
         },
         execute: async (args) => {
             await manager.writeFileInContainer(
-                projectId,
+                websiteId,
                 args.path as string,
                 args.content as string
             );
@@ -71,7 +71,7 @@ export function getAiTools(projectId: string): ITool[] {
             }
         },
         execute: async (args) => {
-            await manager.deleteFileInContainer(projectId, args.path as string);
+            await manager.deleteFileInContainer(websiteId, args.path as string);
             return `File deleted successfully: ${args.path}`;
         }
     };
@@ -93,7 +93,7 @@ export function getAiTools(projectId: string): ITool[] {
         },
         execute: async (args) => {
             const pkg = args.package as string | undefined;
-            await manager.installDependencies(projectId, pkg || undefined);
+            await manager.installDependencies(websiteId, pkg || undefined);
             return pkg
                 ? `Dependency installed successfully: ${pkg}`
                 : `All dependencies installed successfully from package.json`;
@@ -112,7 +112,7 @@ export function getAiTools(projectId: string): ITool[] {
             }
         },
         execute: async () => {
-            const result = await manager.buildProject(projectId);
+            const result = await manager.buildProject(websiteId);
             return JSON.stringify(result);
         }
     };

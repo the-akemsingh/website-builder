@@ -7,13 +7,13 @@ const llmClient = new GoogleGenAI({
 });
 
 //prompt to find which template will be used
-export async function getProjectTemplate(prompt: string): Promise<string> {
+export async function getProjectNameAndTemplate(prompt: string): Promise<{ templateName: string; title: string }> {
     try {
         const response = await llmClient.models.generateContent({
             model: "gemini-3.1-flash-lite",
             contents:
                 `
-                Choose the appropriate project template for the user's request.
+                Choose the appropriate project templateName and the project title for the user's request.
 
                 Available templates:
 
@@ -30,34 +30,58 @@ export async function getProjectTemplate(prompt: string): Promise<string> {
                 User request:
                 ${prompt}
 
-                Return exactly one word:
-                node
+                Return response exactly like this in json :
+                {templateName:"node",title:"Todo app"}
                 or
-                next
+                {templateName:"next",title:"Personal Portfolio"}
             `,
             config: {
-                systemInstruction:
-                    `
-                You are a project template classifier.
-                You have exactly two possible outputs:
-                node
-                next
-                Your response MUST contain exactly one of these values.
-                Do not provide an explanation.
-                Do not provide punctuation.
-                Do not use JSON.
-                Do not use markdown.
-                Do not include whitespace or text before or after the value.
-            `
+                systemInstruction: `
+You are a project templateName classifier and project title generator.
+
+Your task is to:
+1. Choose the most appropriate project templateName.
+2. Generate a short, descriptive project title based on the user's request.
+
+You have exactly two possible templateNames:
+
+- "node": Use for Node.js + TypeScript + Express applications, including backend APIs,
+  REST APIs, webhooks, servers, server-side logic, and backend-focused applications.
+
+- "next": Use for Next.js + TypeScript applications, including websites, landing pages,
+  dashboards, portfolios, ecommerce frontends, and other user-facing web applications.
+
+Your response MUST be valid JSON with exactly these two fields:
+
+{
+  "templateName": "node" | "next",
+  "title": "Project Name"
+}
+
+Rules:
+- "templateName" MUST be exactly either "node" or "next".
+- "title" MUST be a short, descriptive title for the project.
+- Do not include any additional fields.
+- Do not provide an explanation.
+- Do not use markdown.
+- Do not wrap the JSON in code fences.
+- Return JSON only.
+
+Example:
+{"templateName":"node","title":"Todo API"}
+
+Example:
+{"templateName":"next","title":"Personal Portfolio"}
+`
             }
         });
         if (response.text) {
-            return response.text.toLowerCase().trim();
+            return JSON.parse(response.text);
         }
-        return "node";
+        return { "templateName": "next", "title": "New App" };
     } catch (error) {
         console.error("Error generating content:", error);
-        return "node"
+        return { "templateName": "next", "title": "New App" };
     }
 }
 

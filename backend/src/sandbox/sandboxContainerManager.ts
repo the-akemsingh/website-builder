@@ -1,11 +1,7 @@
 import type Dockerode from "dockerode"
 import createSandboxContainer from "./createContainer"
 import type IContainer from "../types/IContainer"
-
-
-// we can keep record of which container belongs to which project using projectId. 
-// in methods we can take input - projectId,path : to file in that project, content : if its a writefile method
-// but adding projectId in methods arguments is not goog approach as we will send the tool signature to LLM. and we will not send the projectId to LLM as well. so we have to manage projectId on ourself.
+import { docker } from "./dockerClient"
 
 export class SandboxContainerManager {
     private containers: IContainer[]
@@ -21,16 +17,17 @@ export class SandboxContainerManager {
         return SandboxContainerManager.instance
     }
 
-    private getContainer(projectId: string) {
-        return this.containers.find((container) => container.projectId === projectId)?.container
+    private getContainer(websiteId: string) {
+        return this.containers.find((container) => container.websiteId === websiteId)?.container
     }
 
-    async createContainer(projectId: string, port: number): Promise<{ projectContainer: Dockerode.Container, hostPort: string }> {
-        const container = await createSandboxContainer(projectId, port);
+    async createContainer(websiteId: string, port: number): Promise<{ projectContainer: Dockerode.Container, hostPort: string }> {
+        console.log("creating container")
+        const container = await createSandboxContainer(websiteId, port);
         const containerInfo = await container.inspect();
         const hostPort = containerInfo.NetworkSettings.Ports[`${port}/tcp`][0].HostPort;
         this.containers.push({
-            projectId,
+            websiteId,
             container,
             hostPort: Number(hostPort),
             url: `http://localhost:${hostPort}`
@@ -38,8 +35,58 @@ export class SandboxContainerManager {
         return { projectContainer: container, hostPort };
     }
 
-    async installDependencies(projectId: string, dependencyName?: string): Promise<void> {
-        const container = this.getContainer(projectId);
+    async deletContainer(websiteId: string) {
+        const containerName = `sandbox-${websiteId}`;
+        try {
+            const container = docker.getContainer(containerName);
+            await container.remove({
+                force: true
+            });
+            console.log(`Deleted container: ${containerName}`);
+        } catch (error: any) {
+            if (error.statusCode === 404) {
+                console.log(`Container ${containerName} not found`);
+                return;
+            }
+            throw error;
+        }
+    }
+
+    async getContainerUrl(
+        websiteId: string,
+        templateName: string
+    ): Promise<string | null> {
+        try {
+            const containerName = `sandbox-${websiteId}`
+            const containerPort = templateName === 'node' ? 3000 : 4001
+            const container = docker.getContainer(containerName);
+
+            let info = await container.inspect();
+
+            if (!info.State.Running) {
+                await container.start();
+                await this.startDevServer(websiteId)
+                info = await container.inspect();
+            }
+            const portKey = `${containerPort}/tcp`;
+            const portBinding = info.NetworkSettings.Ports?.[portKey]?.[0];
+
+            if (!portBinding?.HostPort) {
+                return null;
+            }
+            return `http://localhost:${portBinding.HostPort}`;
+
+        } catch (error: any) {
+            if (error.statusCode === 404) {
+                console.log(`Container not found`);
+                return null;
+            }
+            throw error;
+        }
+    }
+
+    async installDependencies(websiteId: string, dependencyName?: string): Promise<void> {
+        const container = this.getContainer(websiteId);
         if (!container) throw new Error("Container not found");
         // No TTY here: a TTY makes npm wait on interactive behavior and swallows exit signals.
         const exec = await container.exec({
@@ -64,6 +111,9 @@ export class SandboxContainerManager {
                 clearTimeout(timeout);
                 reject(new Error(`Stream error during npm install: ${err.message}`));
             });
+            stream.on("data", (data) => {
+                console.log(data.toString())
+            })
             stream.on("end", async () => {
                 clearTimeout(timeout);
                 try {
@@ -80,12 +130,12 @@ export class SandboxContainerManager {
         });
     }
 
-    async buildProject(projectId: string): Promise<{
+    async buildProject(websiteId: string): Promise<{
         success: boolean;
         exitCode: number | null;
         output: string;
     }> {
-        const container = this.getContainer(projectId);
+        const container = this.getContainer(websiteId);
 
         if (!container) {
             throw new Error("Container not found");
@@ -151,8 +201,8 @@ export class SandboxContainerManager {
         });
     }
 
-    async startDevServer(projectId: string) {
-        const container = this.getContainer(projectId);
+    async startDevServer(websiteId: string) {
+        const container = this.getContainer(websiteId);
         if (!container) throw new Error("Container not found");
 
         const exec = await container.exec({
@@ -170,18 +220,18 @@ export class SandboxContainerManager {
 
         // We can broadcast logs over WebSockets to client side
         stream.on("data", (data) => {
-            console.log(`[Dev Server ${projectId}]:`, data.toString());
+            console.log(`[Dev Server ${websiteId}]:`, data.toString());
         });
         stream.on("error", (err) => {
-            console.error(`[Dev Server Error ${projectId}]:`, err);
+            console.error(`[Dev Server Error ${websiteId}]:`, err);
         });
 
         return exec;
     }
 
     //Docker Engine API does not provide a direct exec.kill() method on exec instances. Calling stream.destroy() only closes your host connection to the logs—the dev server will keep running in the background inside the container.
-    async stopDevServer(projectId: string): Promise<void> {
-        const container = this.getContainer(projectId);
+    async stopDevServer(websiteId: string): Promise<void> {
+        const container = this.getContainer(websiteId);
         if (!container) throw new Error("Container not found");
 
         // Forcefully kill any process matching 'npm' or 'node' running dev scripts
@@ -199,8 +249,8 @@ export class SandboxContainerManager {
     }
 
     //for file updation and new file creation 
-    async writeFileInContainer(projectId: string, relativePath: string, content: string) {
-        const container = this.getContainer(projectId);
+    async writeFileInContainer(websiteId: string, relativePath: string, content: string) {
+        const container = this.getContainer(websiteId);
         if (!container) return;
         const fullPath = `/workspace/${relativePath}`
         const parentDir = fullPath.substring(0, fullPath.lastIndexOf("/"));
@@ -221,10 +271,10 @@ export class SandboxContainerManager {
         });
     }
 
-    async readFileInContainer(projectId: string, relativePath: string): Promise<string> {
-        const container = this.getContainer(projectId);
+    async readFileInContainer(websiteId: string, relativePath: string): Promise<string> {
+        const container = this.getContainer(websiteId);
         if (!container) {
-            new Error(`Respective container not found for project : ${projectId}`)
+            new Error(`Respective container not found for project : ${websiteId}`)
             return ""
         }
 
@@ -265,8 +315,8 @@ export class SandboxContainerManager {
         });
     }
 
-    async deleteFileInContainer(projectId: string, relativePath: string): Promise<void> {
-        const container = this.getContainer(projectId);
+    async deleteFileInContainer(websiteId: string, relativePath: string): Promise<void> {
+        const container = this.getContainer(websiteId);
         if (!container) return;
         const fullPath = `/workspace/${relativePath}`
         const command = await container.exec({
