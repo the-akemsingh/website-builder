@@ -33,8 +33,6 @@ async function handleChatMessage(socket: WebSocket, websiteId: string, prompt: s
         const tools = getAiTools(websiteId)
         const template = project?.templateName === 'node' ? node : next;
 
-        socket.send(JSON.stringify({ type: 'log', message: 'Starting AI processing...' }))
-
         const { response, newHistory } = await invokeLLM(prompt, tools, chatHistory, template, (event) => {
             socket.send(JSON.stringify(event))
         })

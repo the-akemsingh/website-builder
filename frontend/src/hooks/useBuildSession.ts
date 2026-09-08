@@ -14,6 +14,7 @@ interface Options {
 export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) {
   const socketRef = useRef<WebSocket | null>(null);
   const pendingPrompt = useRef<string | null>(initialPrompt ?? null);
+  const initialPromptSent = useRef(false);
   const finalHandler = useRef(onFinal);
   finalHandler.current = onFinal;
 
@@ -27,11 +28,19 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
     setFeed((prev) => [...prev, item]);
   }, []);
 
-  const seedFeed = useCallback((items: FeedItem[]) => setFeed(items), []);
+  const seedFeed = useCallback(
+    (items: FeedItem[]) =>
+      setFeed((prev) => {
+        const seededIds = new Set(items.map((item) => item.id));
+        return [...items, ...prev.filter((item) => !seededIds.has(item.id))];
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!websiteId) return;
 
+    initialPromptSent.current = false;
     setState("connecting");
     setClosedInvalid(false);
     const socket = new WebSocket(`${WS_URL}/?websiteId=${encodeURIComponent(websiteId)}`);
@@ -41,7 +50,8 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
       setConnected(true);
       setState("idle");
       const prompt = pendingPrompt.current;
-      if (prompt) {
+      if (prompt && !initialPromptSent.current) {
+        initialPromptSent.current = true;
         pendingPrompt.current = null;
         append({ kind: "user", id: nextId(), text: prompt });
         setState("ai_processing");

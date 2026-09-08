@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { RefreshCw, TriangleAlert } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { BuildFeed } from "@/components/BuildFeed";
 import { Composer } from "@/components/Composer";
@@ -51,8 +51,12 @@ function Workspace() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [previewNonce, setPreviewNonce] = useState(0);
   const [initialPrompt] = useState<string | null>(prompt ?? null);
+  const [previewReady, setPreviewReady] = useState(false);
 
-  const onFinal = useCallback(() => setPreviewNonce(Date.now()), []);
+  const onFinal = useCallback(() => {
+    setPreviewReady(true);
+    setPreviewNonce(Date.now());
+  }, []);
 
   const { feed, seedFeed, state, busy, connected, closedInvalid, sendPrompt } = useBuildSession({
     websiteId,
@@ -76,6 +80,9 @@ function Workspace() {
           id: message.id,
           text: message.text ?? "",
         }));
+        setPreviewReady(
+          !initialPrompt || history.some((item) => item.kind === "model" && item.text.length > 0),
+        );
         if (history.length) seedFeed(history);
       })
       .catch((e: unknown) => {
@@ -90,12 +97,14 @@ function Workspace() {
     return () => {
       active = false;
     };
-  }, [ready, session, websiteId, navigate, signOut, seedFeed]);
+  }, [initialPrompt, ready, session, websiteId, navigate, signOut, seedFeed]);
 
   const previewUrl = useMemo(() => {
-    if (!details?.url) return null;
+    if (!previewReady || !details?.url) return null;
     return previewNonce ? `${details.url}?refresh=${previewNonce}` : details.url;
-  }, [details?.url, previewNonce]);
+  }, [details?.url, previewNonce, previewReady]);
+
+  const showPreview = previewReady && !busy;
 
   if (closedInvalid || (loadError && !details)) {
     return (
@@ -117,9 +126,21 @@ function Workspace() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
       <AppHeader />
-      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(360px,42%)_1fr]">
+      <div
+        className={
+          showPreview
+            ? "grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(360px,42%)_1fr]"
+            : "flex flex-1 justify-center overflow-hidden"
+        }
+      >
         {/* Chat side — dark */}
-        <section className="flex min-h-0 flex-col border-r border-panel-border bg-panel">
+        <section
+          className={
+            showPreview
+              ? "flex min-h-0 flex-col border-r border-panel-border bg-panel"
+                : "flex min-h-0 w-full flex-col bg-panel"
+          }
+        >
           <div className="flex items-center gap-3 border-b border-panel-border px-5 py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-panel-foreground">
@@ -139,9 +160,9 @@ function Workspace() {
 
           <BuildFeed items={feed} busy={busy} />
 
-          <div className="border-t border-panel-border p-4">
+          <div className="flex flex-col items-center border-t border-panel-border p-4">
             {state === "connection_lost" && (
-              <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-panel-border px-4 py-2">
+              <div className="mb-3 flex w-full max-w-2xl items-center justify-between gap-3 rounded-2xl border border-panel-border px-4 py-2">
                 <p className="text-xs text-panel-muted">Connection lost.</p>
                 <Button
                   variant="pillOutline"
@@ -152,47 +173,46 @@ function Workspace() {
                 </Button>
               </div>
             )}
-            <Composer
-              tone="dark"
-              disabled={busy || !connected}
-              onSubmit={sendPrompt}
-              placeholder="Add a testimonials section with three customer quotes…"
-              hint={connected ? undefined : "Waiting for the build server…"}
-            />
+            <div className="w-full max-w-2xl">
+              <Composer
+                tone="dark"
+                disabled={busy || !connected}
+                onSubmit={sendPrompt}
+                placeholder="Add a testimonials section with three customer quotes…"
+                hint={connected ? undefined : "Waiting for the build server…"}
+              />
+            </div>
           </div>
         </section>
 
-        {/* Preview side — light */}
-        <section className="flex min-h-0 flex-col bg-background">
-          <div className="flex items-center gap-3 border-b border-border px-5 py-3">
-            <p className="mono flex-1 truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
-              {details?.url ?? "waiting for preview URL…"}
-            </p>
-            <Button
-              variant="quiet"
-              size="pillIcon"
-              aria-label="Refresh preview"
-              disabled={!details?.url}
-              onClick={() => setPreviewNonce(Date.now())}
-            >
-              <RefreshCw />
-            </Button>
-          </div>
-          <div className="min-h-0 flex-1 bg-card">
-            {previewUrl ? (
-              <iframe
-                key={previewUrl}
-                src={previewUrl}
-                title="Website preview"
-                className="h-full w-full border-0"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin text-accent" /> Starting the preview…
-              </div>
-            )}
-          </div>
-        </section>
+        {showPreview && (
+          <section className="flex min-h-0 flex-col bg-background">
+            <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+              <p className="mono flex-1 truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+                {details?.url}
+              </p>
+              <Button
+                variant="quiet"
+                size="pillIcon"
+                aria-label="Refresh preview"
+                disabled={!details?.url}
+                onClick={() => setPreviewNonce(Date.now())}
+              >
+                <RefreshCw />
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 bg-card">
+              {previewUrl && (
+                <iframe
+                  key={previewUrl}
+                  src={previewUrl}
+                  title="Website preview"
+                  className="h-full w-full border-0"
+                />
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

@@ -1,30 +1,18 @@
 import { useEffect, useRef } from "react";
-import { Check, ChevronRight, Loader2, TriangleAlert, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ChevronRight, Loader2, TriangleAlert, Wrench } from "lucide-react";
 import type { FeedItem } from "@/lib/types";
 
 function ToolRow({ item }: { item: Extract<FeedItem, { kind: "tool" }> }) {
   return (
-    <div className="rounded-xl border border-panel-border bg-panel-raised px-3 py-2">
+    <div className="flex items-center gap-2 text-xs text-panel-muted">
       <div className="flex items-center gap-2">
-        {item.status === "running" && <Loader2 className="size-3.5 animate-spin text-accent" />}
-        {item.status === "done" && <Check className="size-3.5 text-success" />}
-        {item.status === "failed" && <X className="size-3.5 text-destructive" />}
-        <span className="mono text-xs text-panel-foreground">{item.tool}</span>
-        <span className="ml-auto text-[11px] uppercase tracking-wide text-panel-muted">
-          {item.status}
-        </span>
+        {item.status === "running" ? (
+          <Loader2 className="size-3.5 animate-spin text-accent" />
+        ) : (
+          <Wrench className="size-3.5" />
+        )}
+        <span>Working with {item.tool}</span>
       </div>
-      {item.detail && (
-        <p
-          className={cn(
-            "mono mt-1.5 break-words text-[11px] leading-relaxed",
-            item.status === "failed" ? "text-destructive" : "text-panel-muted",
-          )}
-        >
-          {item.detail}
-        </p>
-      )}
     </div>
   );
 }
