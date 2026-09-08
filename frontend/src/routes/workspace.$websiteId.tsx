@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { RefreshCw, TriangleAlert } from "lucide-react";
+import { Download, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
+import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { BuildFeed } from "@/components/BuildFeed";
 import { Composer } from "@/components/Composer";
 import { Button } from "@/components/ui/button";
 import { useBuildSession } from "@/hooks/useBuildSession";
-import { ApiError, getWebsite } from "@/lib/api";
+import { ApiError, downloadSourceCode, getWebsite } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { FeedItem, WebsiteDetails } from "@/lib/types";
 
@@ -87,6 +88,7 @@ function Workspace() {
   const [previewNonce, setPreviewNonce] = useState(0);
   const [initialPrompt] = useState<string | null>(prompt ?? null);
   const [previewReady, setPreviewReady] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const onFinal = useCallback(() => {
     setPreviewReady(true);
@@ -136,6 +138,28 @@ function Workspace() {
   }, [details?.url, previewNonce, previewReady]);
 
   const showPreview = previewReady && !busy;
+
+  async function handleDownloadSource() {
+    if (!session || downloading) return;
+    setDownloading(true);
+    const toastId = toast.loading("Preparing source code download...");
+    try {
+      await downloadSourceCode(websiteId, session.token);
+      toast.success("Source code download started.", { id: toastId });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        toast.dismiss(toastId);
+        signOut();
+        navigate({ to: "/" });
+        return;
+      }
+      toast.error(error instanceof Error ? error.message : "Couldn't download the source code.", {
+        id: toastId,
+      });
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   if (closedInvalid || (loadError && !details)) {
     return (
@@ -187,6 +211,16 @@ function Workspace() {
               />
               {STATE_LABEL[state] ?? state}
             </span>
+            <Button
+              variant="quiet"
+              size="pillIcon"
+              aria-label={downloading ? "Preparing source code download" : "Download source code"}
+              title={downloading ? "Preparing source code download" : "Download source code"}
+              disabled={downloading}
+              onClick={handleDownloadSource}
+            >
+              {downloading ? <Loader2 className="animate-spin" /> : <Download />}
+            </Button>
           </div>
 
           <BuildFeed items={feed} busy={busy} />

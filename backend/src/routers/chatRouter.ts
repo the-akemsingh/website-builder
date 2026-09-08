@@ -32,10 +32,6 @@ chatRouter.get("/", async (req, res) => {
 chatRouter.delete("/:websiteId", async (req, res) => {
     try {
         const { websiteId } = req.params;
-        if (!websiteId) {
-            res.sendStatus(404)
-            return;
-        }
         await SandboxContainerManager.getInstance().deletContainer(websiteId)
         await dbClient.Website.where({
             id: websiteId
@@ -52,10 +48,6 @@ chatRouter.delete("/:websiteId", async (req, res) => {
 chatRouter.get("/:websiteId", async (req, res) => {
     try {
         const { websiteId } = req.params;
-        if (!websiteId) {
-            res.sendStatus(404)
-            return;
-        }
 
         const website = await dbClient.Website.select("id", "title", "createdAt", "templateName")
             .where({ id: websiteId })
@@ -104,7 +96,7 @@ chatRouter.post("/", async (req, res) => {
 
         const containerManager = SandboxContainerManager.getInstance();
         const port = getProjectPort(templateName)
-        const { hostPort } = await containerManager.createContainer(websiteId, port,templateName)
+        const { hostPort } = await containerManager.createContainer(websiteId, port, templateName)
         console.log("container created")
 
         // await createFileStructure(projectContainer, template)
@@ -131,5 +123,48 @@ chatRouter.post("/", async (req, res) => {
         return;
     }
 })
+
+chatRouter.get("/:websiteId/source", async (req, res) => {
+    try {
+        const { websiteId } = req.params;
+
+        const website = await dbClient.Website.where({
+            id: websiteId,
+            userId: req.userId,
+        }).first();
+
+        if (!website) {
+            res.sendStatus(404);
+            return;
+        }
+
+        const archive = await SandboxContainerManager.getInstance().getSourceArchive(websiteId);
+
+        res.setHeader("Content-Type", "application/x-tar");
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename="${website.title.replace(/[^a-z0-9-_]+/gi, "-")}.tar"`,
+        );
+
+        archive.on("error", (error) => {
+            console.error("Archive stream error:", error);
+
+            if (!res.headersSent) {
+                res.sendStatus(500);
+            } else {
+                res.destroy(error);
+            }
+        });
+
+        archive.pipe(res);
+    } catch (error) {
+        console.error("Error downloading source code:", error);
+        if (!res.headersSent) {
+            res.sendStatus(500);
+        } else {
+            res.destroy();
+        }
+    }
+});
 
 export default chatRouter;
