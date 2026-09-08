@@ -7,11 +7,14 @@ import { contentToDbMessage, dbMessageToContent } from "./utils/chatHistoryConve
 import RandomIdGenerator from "./utils/randomIdGenerator"
 import { node } from "./templates/nodejs/template"
 import { next } from "./templates/nextjs/template"
+import { SandboxContainerManager } from "./sandbox/sandboxContainerManager"
 
 async function handleChatMessage(socket: WebSocket, websiteId: string, prompt: string) {
     try {
         // const chatHistoryManager = ChatHistory.getInstance()
         // let chat = chatHistoryManager.getChat(websiteId)
+        const sandboxManager = SandboxContainerManager.getInstance()
+        await sandboxManager.stopDevServer(websiteId)
         const project = await dbClient.Website.first({
             id: websiteId
         })
@@ -44,6 +47,13 @@ async function handleChatMessage(socket: WebSocket, websiteId: string, prompt: s
         await Promise.all(
             formattedNewMessages.map((message) => dbClient.Message.create(message))
         )
+        console.log("starting server ")
+        await sandboxManager.startDevServer(websiteId)
+        console.log("server started")
+
+        setTimeout(() => {
+            sandboxManager.stopDevServer(websiteId);
+        }, 30 * 60 * 1000);
 
         socket.send(JSON.stringify({ type: 'final', response }))
 

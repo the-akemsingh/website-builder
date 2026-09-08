@@ -8,6 +8,8 @@ interface Config {
     projectsBaseUrl: string;
     googleClientId: string;
     jwtSecret: string;
+    nodeTemplateImage: string;
+    nextTemplateImage: string;
 }
 
 class ConfigLoader {
@@ -21,7 +23,9 @@ class ConfigLoader {
             dockerSocketPath: process.env.DOCKER_SOCKET_PATH || '//./pipe/docker_engine',
             projectsBaseUrl: process.env.PROJECTS_BASE_URL || 'http://localhost',
             googleClientId: process.env.GOOGLE_CLIENT_ID || '',
-            jwtSecret: process.env.JWT_SECRET || '123456789'
+            jwtSecret: process.env.JWT_SECRET || '123456789',
+            nodeTemplateImage: process.env.NODE_TEMPLATE_IMAGE || 'akemnoorsingh/node-template:v1',
+            nextTemplateImage: process.env.NEXT_TEMPLATE_IMAGE || 'akemnoorsingh/next-template:v1'
         };
     }
 

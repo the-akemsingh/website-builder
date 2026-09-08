@@ -3,10 +3,10 @@ import { docker } from "./dockerClient";
 
 //this just creates a container using node:22 image
 // project files will be built on top of this/inside this using respective templates : node/next
-async function createSandboxContainer(websiteId: string, port: number) {
+async function createSandboxContainer(websiteId: string, port: number, image:string) {
     const containerPortKey = `${port}/tcp`;
     const container = await docker.createContainer({
-        Image: "node:22",
+        Image:image,
         name: `sandbox-${websiteId}`,
         Cmd: ["tail", "-f", "/dev/null"],
         WorkingDir: "/workspace",
@@ -25,14 +25,6 @@ async function createSandboxContainer(websiteId: string, port: number) {
     });
 
     await container.start();
-
-    const execInstance = await container.exec({
-        Cmd: ["mkdir", "-p", "/workspace"],
-        AttachStdout: true,
-        AttachStderr: true,
-    });
-
-    await execInstance.start({});
 
     return container;
 }

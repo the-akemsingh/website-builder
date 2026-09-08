@@ -25,7 +25,6 @@ async function socketMessageHandler(socket: WebSocket, request: import('http').I
             if (data.type === 'chat' && data.prompt) {
                 await handleChatMessage(socket, websiteId, data.prompt)
             } else {
-
                 socket.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }))
             }
         } catch (e) {

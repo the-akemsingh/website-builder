@@ -85,8 +85,9 @@ chatRouter.post("/", async (req, res) => {
             res.sendStatus(400)
             return
         }
+
         const { templateName, title } = await getProjectNameAndTemplate(prompt);
-        const template = templateName === "node" ? node : next
+        // const template = templateName === "node" ? node : next
 
         const newProject = await dbClient.Website.create({
             id: RandomIdGenerator(),
@@ -103,21 +104,23 @@ chatRouter.post("/", async (req, res) => {
 
         const containerManager = SandboxContainerManager.getInstance();
         const port = getProjectPort(templateName)
-        const { projectContainer, hostPort } = await containerManager.createContainer(websiteId, port)
+        const { hostPort } = await containerManager.createContainer(websiteId, port,templateName)
         console.log("container created")
 
-        await createFileStructure(projectContainer, template)
-        console.log("file structrue created")
+        // await createFileStructure(projectContainer, template)
+        // console.log("file structrue created")
 
-        console.log("installing dependecies")
-        await containerManager.installDependencies(websiteId)
-        console.log("dependecies installed")
-        console.log("starting server ")
-        await containerManager.startDevServer(websiteId)
-        console.log("server started")
-        setTimeout(() => {
-            containerManager.stopDevServer(websiteId);
-        }, 30 * 60 * 1000);
+        // console.log("installing dependecies")
+        // await containerManager.installDependencies(websiteId)
+        // console.log("dependecies installed")
+
+        // console.log("starting server ")
+        // await containerManager.startDevServer(websiteId)
+        // console.log("server started")
+
+        // setTimeout(() => {
+        //     containerManager.stopDevServer(websiteId);
+        // }, 30 * 60 * 1000);
 
         res.send({ websiteId, projectUrl: `${PROJECTS_BASE_URL}:${hostPort}` })
         return;

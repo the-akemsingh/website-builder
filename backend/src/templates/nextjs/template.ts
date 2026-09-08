@@ -134,14 +134,16 @@ export default eslintConfig;
     ]]></file>
 
     <file path="postcss.config.mjs"><![CDATA[
-export default {
+const config = {
   plugins: {
-    "@tailwindcss/postcss": {}
-  }
+    "@tailwindcss/postcss": {},
+  },
 };
+
+export default config;
     ]]></file>
 
-    <file path="src/app/layout.tsx"><![CDATA[
+    <file path="app/layout.tsx"><![CDATA[
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -163,7 +165,7 @@ export default function RootLayout({
 }
     ]]></file>
 
-    <file path="src/app/page.tsx"><![CDATA[
+    <file path="app/page.tsx"><![CDATA[
 export default function Home() {
   return (
     <main className="min-h-screen bg-white text-black">
@@ -183,7 +185,7 @@ export default function Home() {
 }
     ]]></file>
 
-    <file path="src/app/globals.css"><![CDATA[
+    <file path="app/globals.css"><![CDATA[
 @import "tailwindcss";
 
 :root {

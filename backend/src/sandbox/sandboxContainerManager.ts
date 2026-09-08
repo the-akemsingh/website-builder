@@ -2,6 +2,7 @@ import type Dockerode from "dockerode"
 import createSandboxContainer from "./createContainer"
 import type IContainer from "../types/IContainer"
 import { docker } from "./dockerClient"
+import { config } from "../config"
 
 export class SandboxContainerManager {
     private containers: IContainer[]
@@ -21,9 +22,10 @@ export class SandboxContainerManager {
         return this.containers.find((container) => container.websiteId === websiteId)?.container
     }
 
-    async createContainer(websiteId: string, port: number): Promise<{ projectContainer: Dockerode.Container, hostPort: string }> {
+    async createContainer(websiteId: string, port: number, templateName: string): Promise<{ projectContainer: Dockerode.Container, hostPort: string }> {
         console.log("creating container")
-        const container = await createSandboxContainer(websiteId, port);
+        const image = templateName === "next" ? config.get("nextTemplateImage") : config.get("nodeTemplateImage")
+        const container = await createSandboxContainer(websiteId, port, image);
         const containerInfo = await container.inspect();
         const hostPort = containerInfo.NetworkSettings.Ports[`${port}/tcp`][0].HostPort;
         this.containers.push({
@@ -58,7 +60,7 @@ export class SandboxContainerManager {
     ): Promise<string | null> {
         try {
             const containerName = `sandbox-${websiteId}`
-            const containerPort = templateName === 'node' ? 3000 : 4001
+            const containerPort = templateName === 'node' ? 4000 : 4001
             const container = docker.getContainer(containerName);
 
             let info = await container.inspect();
@@ -140,7 +142,6 @@ export class SandboxContainerManager {
         if (!container) {
             throw new Error("Container not found");
         }
-
         const exec = await container.exec({
             Cmd: ["npm", "run", "build"],
             WorkingDir: "/workspace",
@@ -175,6 +176,9 @@ export class SandboxContainerManager {
                 }
             );
 
+            stream.on("data", (data) => {
+                console.log("Project: ", websiteId, "build logs-", data.toString())
+            });
             stream.on("error", (err) => {
                 clearTimeout(timeout);
                 reject(
@@ -187,7 +191,6 @@ export class SandboxContainerManager {
 
                 try {
                     const inspectData = await exec.inspect();
-
                     resolve({
                         success: inspectData.ExitCode === 0,
                         exitCode: inspectData.ExitCode,
@@ -206,7 +209,16 @@ export class SandboxContainerManager {
         if (!container) throw new Error("Container not found");
 
         const exec = await container.exec({
-            Cmd: ["npm", "run", "dev"],
+            Cmd: [
+                "pm2",
+                "start",
+                "npm",
+                "--name",
+                "dev",
+                "--",
+                "run",
+                "dev"
+            ],
             WorkingDir: "/workspace",
             AttachStdout: true,
             AttachStderr: true,
@@ -232,20 +244,53 @@ export class SandboxContainerManager {
     //Docker Engine API does not provide a direct exec.kill() method on exec instances. Calling stream.destroy() only closes your host connection to the logs—the dev server will keep running in the background inside the container.
     async stopDevServer(websiteId: string): Promise<void> {
         const container = this.getContainer(websiteId);
-        if (!container) throw new Error("Container not found");
 
-        // Forcefully kill any process matching 'npm' or 'node' running dev scripts
+        if (!container) {
+            throw new Error("Container not found");
+        }
+
+        console.log("Stopping dev server:", websiteId);
+
         const stopExec = await container.exec({
-            Cmd: ["sh", "-c", "pkill -f 'npm run dev' || pkill -f 'next-dev' || pkill -f 'vite'"],
-            WorkingDir: "/workspace"
+            Cmd: [
+                "sh",
+                "-c",
+                "pm2 delete dev || true"
+            ],
+            WorkingDir: "/workspace",
+            AttachStdout: true,
+            AttachStderr: true
         });
 
         const stream = await stopExec.start({});
 
-        return new Promise((resolve) => {
-            stream.on("end", resolve);
-            stream.on("error", resolve);
+        await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                console.log("PM2 stop command timed out:", websiteId);
+                // Close our Docker log connection.
+                stream.destroy();
+
+                resolve();
+            }, 15_000);
+
+            stream.on("end", () => {
+                clearTimeout(timeout);
+                resolve();
+            });
+
+            stream.on("error", (err) => {
+                clearTimeout(timeout);
+                reject(err);
+            });
+
+            container.modem.demuxStream(
+                stream,
+                process.stdout,
+                process.stderr
+            );
         });
+
+        console.log("Dev server stop command completed:", websiteId);
     }
 
     //for file updation and new file creation 
