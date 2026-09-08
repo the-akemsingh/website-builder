@@ -37,7 +37,7 @@ async function handleChatMessage(socket: WebSocket, websiteId: string, prompt: s
             socket.send(JSON.stringify(event))
         })
         console.log("new history, -------", JSON.stringify(newHistory))
-        const newEntries = newHistory.slice(0, chatHistory.length - 1);
+        const newEntries = newHistory.slice(chatHistory.length + 1);
         console.log("new entries,--------", JSON.stringify(newEntries))
 
         const formattedNewMessages = contentToDbMessage(newEntries, websiteId)
