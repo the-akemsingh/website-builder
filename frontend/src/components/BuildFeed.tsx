@@ -6,12 +6,12 @@ function ToolRow({ item }: { item: Extract<FeedItem, { kind: "tool" }> }) {
   return (
     <div className="flex items-center gap-2 text-xs text-panel-muted">
       <div className="flex items-center gap-2">
-        {item.status === "running" ? (
+        {item.live && item.status === "running" ? (
           <Loader2 className="size-3.5 animate-spin text-accent" />
         ) : (
           <Wrench className="size-3.5" />
         )}
-        <span>Working with {item.tool}</span>
+        <span>{item.live && item.status === "running" ? "Working with" : "Used"} {item.tool}</span>
       </div>
     </div>
   );

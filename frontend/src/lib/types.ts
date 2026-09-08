@@ -22,6 +22,8 @@ export interface WebsiteMessage {
   id: string;
   role: string;
   text: string | null;
+  functionCallName: string | null;
+  functionCallResponse: string | null;
   createdAt: string;
 }
 
@@ -63,5 +65,12 @@ export type FeedItem =
   | { kind: "user"; id: string; text: string }
   | { kind: "model"; id: string; text: string }
   | { kind: "log"; id: string; text: string }
-  | { kind: "tool"; id: string; tool: string; status: "running" | "done" | "failed"; detail?: string | undefined }
+  | {
+      kind: "tool";
+      id: string;
+      tool: string;
+      status: "running" | "done" | "failed";
+      live?: boolean;
+      detail?: string | undefined;
+    }
   | { kind: "error"; id: string; text: string };

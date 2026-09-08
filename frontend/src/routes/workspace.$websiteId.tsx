@@ -41,6 +41,41 @@ const STATE_LABEL: Record<string, string> = {
   error: "Error",
 };
 
+function historyToFeedItem(message: WebsiteDetails["project"]["Messages"][number]): FeedItem {
+  if (message.role === "user") {
+    return {
+      kind: "user",
+      id: message.id,
+      text: message.text || "(Empty user message)",
+    };
+  }
+
+  if (message.role === "model" && message.text) {
+    return { kind: "model", id: message.id, text: message.text };
+  }
+
+  if (message.functionCallName) {
+    const failed = message.functionCallResponse?.toLowerCase().includes('"error"') ?? false;
+    return {
+      kind: "tool",
+      id: message.id,
+      tool: message.functionCallName,
+      status: message.role === "tool" ? (failed ? "failed" : "done") : "done",
+      live: false,
+    };
+  }
+
+  if (message.text) {
+    return { kind: "log", id: message.id, text: message.text };
+  }
+
+  return {
+    kind: "log",
+    id: message.id,
+    text: `${message.role || "system"} activity`,
+  };
+}
+
 function Workspace() {
   const { websiteId } = Route.useParams();
   const { prompt } = Route.useSearch();
@@ -75,11 +110,7 @@ function Workspace() {
       .then((data) => {
         if (!active) return;
         setDetails(data);
-        const history: FeedItem[] = data.project.Messages.map((message) => ({
-          kind: message.role === "user" ? "user" : "model",
-          id: message.id,
-          text: message.text ?? "",
-        }));
+        const history: FeedItem[] = data.project.Messages.map(historyToFeedItem);
         setPreviewReady(
           !initialPrompt || history.some((item) => item.kind === "model" && item.text.length > 0),
         );

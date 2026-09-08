@@ -72,7 +72,7 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
         append({ kind: "log", id: nextId(), text: event.message });
       } else if (event.type === "toolStart") {
         setState("running_tool");
-        append({ kind: "tool", id: nextId(), tool: event.tool, status: "running" });
+        append({ kind: "tool", id: nextId(), tool: event.tool, status: "running", live: true });
       } else if (event.type === "toolEnd") {
         setState("ai_processing");
         setFeed((prev) => {
@@ -93,6 +93,7 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
             id: nextId(),
             tool: event.tool,
             status: event.error ? "failed" : "done",
+            live: true,
             detail: event.error ?? event.result,
           });
           return next;
