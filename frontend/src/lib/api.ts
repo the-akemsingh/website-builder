@@ -121,3 +121,30 @@ export async function deleteWebsite(websiteId: string, token: string): Promise<v
     token,
   });
 }
+
+export async function downloadSourceCode(websiteId: string, token: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/website/${encodeURIComponent(websiteId)}/source`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    throw new ApiError(0, "Can't reach the server. Is the backend running?");
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, messageForStatus(response.status, "Couldn't download the source code."));
+  }
+
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get("Content-Disposition");
+  const filename = contentDisposition?.match(/filename="?([^";]+)"?/i)?.[1] ?? `${websiteId}-source.tar`;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

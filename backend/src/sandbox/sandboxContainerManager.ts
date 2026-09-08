@@ -393,4 +393,79 @@ export class SandboxContainerManager {
             stream.on("error", reject);
         });
     }
+
+    async getSourceArchive(websiteId: string) {
+        const container = docker.getContainer(`sandbox-${websiteId}`);
+
+        await container.inspect();
+
+        const exportPath = "/tmp/source-export";
+
+        // Create a temporary copy
+        const exec = await container.exec({
+            Cmd: [
+                "sh",
+                "-c",
+                `
+                rm -rf ${exportPath} &&
+                cp -a /workspace ${exportPath} &&
+                rm -rf \
+                    ${exportPath}/node_modules \
+                    ${exportPath}/.next \
+                    ${exportPath}/dist \
+                    ${exportPath}/.git
+            `,
+            ],
+            WorkingDir: "/workspace",
+            AttachStdout: true,
+            AttachStderr: true,
+        });
+
+        const stream = await exec.start({});
+
+        await new Promise<void>((resolve, reject) => {
+            stream.on("end", resolve);
+            stream.on("error", reject);
+
+            stream.resume();
+        });
+
+        const archive = await container.getArchive({
+            path: exportPath,
+        });
+
+        archive.on("end", async () => {
+            try {
+                const cleanupExec = await container.exec({
+                    Cmd: [
+                        "rm",
+                        "-rf",
+                        exportPath,
+                    ],
+                    AttachStdout: true,
+                    AttachStderr: true,
+                });
+
+                const cleanupStream = await cleanupExec.start({});
+
+                cleanupStream.on("error", (error) => {
+                    console.error(
+                        "Failed to cleanup source export:",
+                        error
+                    );
+                });
+
+                cleanupStream.resume();
+
+            } catch (error) {
+                console.error(
+                    "Failed to start source export cleanup:",
+                    error
+                );
+            }
+        });
+
+        return archive;
+    }
 }
+
