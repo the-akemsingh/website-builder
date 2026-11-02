@@ -1,29 +1,44 @@
 import type WebSocket from "ws"
 import { invokeLLM } from "./ai/client"
 import { getAiTools } from "./ai/tools"
-import { ChatHistory } from "./memory/chatHistory"
 import dbClient from "./prisma/db"
 import { contentToDbMessage, dbMessageToContent } from "./utils/chatHistoryConverter"
 import RandomIdGenerator from "./utils/randomIdGenerator"
 import { node } from "./templates/nodejs/template"
 import { next } from "./templates/nextjs/template"
 import { SandboxContainerManager } from "./sandbox/sandboxContainerManager"
+import { CreditService } from "./billing/creditService"
 
 async function handleChatMessage(socket: WebSocket, websiteId: string, prompt: string) {
     try {
-        // const chatHistoryManager = ChatHistory.getInstance()
-        // let chat = chatHistoryManager.getChat(websiteId)
         const sandboxManager = SandboxContainerManager.getInstance()
         await sandboxManager.stopDevServer(websiteId)
         const project = await dbClient.Website.first({
             id: websiteId
         })
+        if (!project) {
+            socket.send(JSON.stringify({ type: 'error', message: 'Website not found' }))
+            return
+        }
+
+        const balance = await CreditService.getBalance(project.userId)
+        if (balance <= 0) {
+            socket.send(JSON.stringify({
+                type: 'error',
+                code: 'INSUFFICIENT_CREDITS',
+                balance,
+                message: 'Insufficient credits',
+            }))
+            return
+        }
+
+        const messageId = RandomIdGenerator()
         const userMessage = {
             role: "user",
             text: prompt
         }
         await dbClient.Message.create({
-            id: RandomIdGenerator(),
+            id: messageId,
             websiteId: websiteId,
             role: userMessage.role,
             text: userMessage.text
@@ -31,11 +46,25 @@ async function handleChatMessage(socket: WebSocket, websiteId: string, prompt: s
         const chatHistory = await dbMessageToContent(websiteId)
         console.log("chat history to content,----", JSON.stringify(chatHistory))
         const tools = getAiTools(websiteId)
-        const template = project?.templateName === 'node' ? node : next;
+        const template = project.templateName === 'node' ? node : next;
 
-        const { response, newHistory } = await invokeLLM(prompt, tools, chatHistory, template, (event) => {
-            socket.send(JSON.stringify(event))
-        })
+        const { response, newHistory } = await invokeLLM(
+            prompt,
+            tools,
+            chatHistory,
+            template,
+            (event) => {
+                socket.send(JSON.stringify(event))
+            },
+            {
+                userId: project.userId,
+                websiteId,
+                messageId,
+                onUsage: (usageEvent) => {
+                    socket.send(JSON.stringify(usageEvent))
+                },
+            },
+        )
         console.log("new history, -------", JSON.stringify(newHistory))
         const newEntries = newHistory.slice(chatHistory.length + 1);
         console.log("new entries,--------", JSON.stringify(newEntries))

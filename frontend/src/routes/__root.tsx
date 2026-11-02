@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "../lib/auth";
 import { Toaster } from "../components/ui/sonner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { absoluteUrl } from "@/lib/seo";
 
 function NotFoundComponent() {
   return (
@@ -79,23 +80,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Forge — Build websites by prompting" },
-      {
-        name: "description",
-        content:
-          "Describe a website, watch it get built live, and keep refining it in a single chat.",
-      },
-      { property: "og:title", content: "Forge — Build websites by prompting" },
-      {
-        property: "og:description",
-        content:
-          "Describe a website, watch it get built live, and keep refining it in a single chat.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "canonical", href: absoluteUrl("/") },
       {
         rel: "stylesheet",
         href: appCss,

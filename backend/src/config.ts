@@ -10,6 +10,8 @@ interface Config {
     jwtSecret: string;
     nodeTemplateImage: string;
     nextTemplateImage: string;
+    publicBaseUrl: string;
+    paymentProvider: string;
 }
 
 class ConfigLoader {
@@ -25,7 +27,9 @@ class ConfigLoader {
             googleClientId: process.env.GOOGLE_CLIENT_ID || '',
             jwtSecret: process.env.JWT_SECRET || '123456789',
             nodeTemplateImage: process.env.NODE_TEMPLATE_IMAGE || 'akemnoorsingh/node-template:v1',
-            nextTemplateImage: process.env.NEXT_TEMPLATE_IMAGE || 'akemnoorsingh/next-template:v1'
+            nextTemplateImage: process.env.NEXT_TEMPLATE_IMAGE || 'akemnoorsingh/next-template:v1',
+            publicBaseUrl: process.env.PUBLIC_BASE_URL || `http://localhost:${Number(process.env.API_SERVER_PORT) || 3000}`,
+            paymentProvider: process.env.PAYMENT_PROVIDER || 'mock',
         };
     }
 
@@ -45,7 +49,7 @@ class ConfigLoader {
             throw new Error('GEMINI_API_KEY is required');
         }
         if (!this.config.apiServerPort) {
-            throw new Error(' is required');
+            throw new Error('API_SERVER_PORT is required');
         }
     }
 }

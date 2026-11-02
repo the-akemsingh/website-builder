@@ -3,12 +3,10 @@ import RandomIdGenerator from "../utils/randomIdGenerator";
 import { getProjectNameAndTemplate } from "../ai/client";
 import { SandboxContainerManager } from "../sandbox/sandboxContainerManager";
 import getProjectPort from "../utils/getProjectPort";
-import createFileStructure from "../sandbox/createFileStructureInContainer";
-import { node } from "../templates/nodejs/template";
-import { next } from "../templates/nextjs/template";
 import { config } from "../config";
 import dbClient from "../prisma/db";
 import authentication from "../middleware/auth";
+import { CreditService } from "../billing/creditService";
 
 const chatRouter = Router();
 const PROJECTS_BASE_URL = config.get("projectsBaseUrl");
@@ -78,41 +76,42 @@ chatRouter.post("/", async (req, res) => {
             return
         }
 
-        const { templateName, title } = await getProjectNameAndTemplate(prompt);
-        // const template = templateName === "node" ? node : next
+        const userId = req.userId!;
+        const balance = await CreditService.getBalance(userId);
+        if (balance <= 0) {
+            res.status(402).json({
+                code: "INSUFFICIENT_CREDITS",
+                balance,
+            });
+            return;
+        }
 
-        const newProject = await dbClient.Website.create({
-            id: RandomIdGenerator(),
-            userId: req.userId!,
+        // Create website first so the classifier LLM call can be metered against it
+        const websiteId = RandomIdGenerator();
+        await dbClient.Website.create({
+            id: websiteId,
+            userId,
+            templateName: "next",
+            title: "New App",
+        });
+
+        const { templateName, title } = await getProjectNameAndTemplate(prompt, {
+            userId,
+            websiteId,
+        });
+
+        await dbClient.Website.where({ id: websiteId }).update({
             templateName,
-            title
-        })
-        console.log("new chat req rec, prompt : ", prompt)
-        // const chatHistoryManager = ChatHistory.getInstance()
-        const websiteId = newProject.id;
-        console.log("templateName : ", templateName)
+            title,
+        });
 
-        // chatHistoryManager.createChat(websiteId, templateName as 'node' | "next")
+        console.log("new chat req rec, prompt : ", prompt)
+        console.log("templateName : ", templateName)
 
         const containerManager = SandboxContainerManager.getInstance();
         const port = getProjectPort(templateName)
         const { hostPort } = await containerManager.createContainer(websiteId, port, templateName)
         console.log("container created")
-
-        // await createFileStructure(projectContainer, template)
-        // console.log("file structrue created")
-
-        // console.log("installing dependecies")
-        // await containerManager.installDependencies(websiteId)
-        // console.log("dependecies installed")
-
-        // console.log("starting server ")
-        // await containerManager.startDevServer(websiteId)
-        // console.log("server started")
-
-        // setTimeout(() => {
-        //     containerManager.stopDevServer(websiteId);
-        // }, 30 * 60 * 1000);
 
         res.send({ websiteId, projectUrl: `${PROJECTS_BASE_URL}:${hostPort}` })
         return;

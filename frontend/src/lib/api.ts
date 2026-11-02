@@ -3,6 +3,8 @@ import type {
   LoginResponse,
   WebsiteDetails,
   WebsiteSummary,
+  BillingMe,
+  BillingPlan,
 } from "./types";
 
 export const API_URL =
@@ -13,9 +15,11 @@ export const WS_URL = API_URL.replace(/^http/, "ws");
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    if (code) this.code = code;
     this.name = "ApiError";
   }
 }
@@ -50,13 +54,15 @@ async function request<T>(
 
   if (!response.ok) {
     let detail: string | undefined;
+    let code: string | undefined;
     try {
       const body = await response.json();
       if (body && typeof body.message === "string") detail = body.message;
+      if (body && typeof body.code === "string") code = body.code;
     } catch {
       /* empty or non-JSON body */
     }
-    throw new ApiError(response.status, messageForStatus(response.status, detail));
+    throw new ApiError(response.status, messageForStatus(response.status, detail), code);
   }
 
   const text = await response.text();
@@ -66,6 +72,30 @@ async function request<T>(
   } catch {
     return null;
   }
+}
+
+export async function getBillingPlans(): Promise<BillingPlan[]> {
+  const data = await request<{ plans: BillingPlan[] }>("/billing/plans");
+  return data?.plans ?? [];
+}
+
+export async function getBillingMe(token: string): Promise<BillingMe> {
+  const data = await request<BillingMe>("/billing/me", { token });
+  if (!data) throw new ApiError(500, "The billing response was empty.");
+  return data;
+}
+
+export async function createCheckout(
+  token: string,
+  input: { planKey?: string; topupCredits?: number; returnUrl?: string },
+): Promise<{ checkoutUrl: string }> {
+  const data = await request<{ checkoutUrl: string }>("/billing/checkout", {
+    method: "POST",
+    token,
+    body: JSON.stringify(input),
+  });
+  if (!data?.checkoutUrl) throw new ApiError(500, "The checkout link was empty.");
+  return data;
 }
 
 export async function checkBackendHealth(): Promise<boolean> {

@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as BillingReturnRouteImport } from './routes/billing.return'
 import { Route as WorkspaceWebsiteIdRouteImport } from './routes/workspace.$websiteId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -18,9 +20,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingReturnRoute = BillingReturnRouteImport.update({
+  id: '/billing/return',
+  path: '/billing/return',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspaceWebsiteIdRoute = WorkspaceWebsiteIdRouteImport.update({
@@ -31,31 +43,47 @@ const WorkspaceWebsiteIdRoute = WorkspaceWebsiteIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/pricing': typeof PricingRoute
   '/projects': typeof ProjectsRoute
+  '/billing/return': typeof BillingReturnRoute
   '/workspace/$websiteId': typeof WorkspaceWebsiteIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/pricing': typeof PricingRoute
   '/projects': typeof ProjectsRoute
+  '/billing/return': typeof BillingReturnRoute
   '/workspace/$websiteId': typeof WorkspaceWebsiteIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/pricing': typeof PricingRoute
   '/projects': typeof ProjectsRoute
+  '/billing/return': typeof BillingReturnRoute
   '/workspace/$websiteId': typeof WorkspaceWebsiteIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/projects' | '/workspace/$websiteId'
+  fullPaths:
+    '/' | '/pricing' | '/projects' | '/billing/return' | '/workspace/$websiteId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/projects' | '/workspace/$websiteId'
-  id: '__root__' | '/' | '/projects' | '/workspace/$websiteId'
+  to:
+    '/' | '/pricing' | '/projects' | '/billing/return' | '/workspace/$websiteId'
+  id:
+    | '__root__'
+    | '/'
+    | '/pricing'
+    | '/projects'
+    | '/billing/return'
+    | '/workspace/$websiteId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PricingRoute: typeof PricingRoute
   ProjectsRoute: typeof ProjectsRoute
+  BillingReturnRoute: typeof BillingReturnRoute
   WorkspaceWebsiteIdRoute: typeof WorkspaceWebsiteIdRoute
 }
 
@@ -68,11 +96,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects': {
       id: '/projects'
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/return': {
+      id: '/billing/return'
+      path: '/billing/return'
+      fullPath: '/billing/return'
+      preLoaderRoute: typeof BillingReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/workspace/$websiteId': {
@@ -87,7 +129,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PricingRoute: PricingRoute,
   ProjectsRoute: ProjectsRoute,
+  BillingReturnRoute: BillingReturnRoute,
   WorkspaceWebsiteIdRoute: WorkspaceWebsiteIdRoute,
 }
 export const routeTree = rootRouteImport

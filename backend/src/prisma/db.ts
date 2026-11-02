@@ -7,5 +7,7 @@ const db = postgres<Contract>({
   contractJson,
   url: process.env['DATABASE_URL']!,
 });
-const dbClient = db.orm.public
-export default dbClient
+
+const dbClient = db.orm.public;
+export default dbClient;
+export { db };

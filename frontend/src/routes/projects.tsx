@@ -7,18 +7,11 @@ import { Button } from "@/components/ui/button";
 import { ApiError, deleteWebsite, listWebsites } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { WebsiteSummary } from "@/lib/types";
+import { noIndexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/projects")({
   head: () => ({
-    meta: [
-      { title: "Your projects — Forge" },
-      { name: "description", content: "Every website you've built with Forge, with live previews." },
-      { property: "og:title", content: "Your projects — Forge" },
-      {
-        property: "og:description",
-        content: "Every website you've built with Forge, with live previews.",
-      },
-    ],
+    meta: [{ title: "Your projects — Forge" }, ...noIndexHead.meta],
   }),
   component: Projects,
 });

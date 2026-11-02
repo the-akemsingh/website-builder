@@ -18,7 +18,7 @@ export function AppHeader({ tone = "light" }: { tone?: "light" | "dark" }) {
         <span className="size-3 rounded-full bg-accent" />
         <span
           className={cn(
-            "text-sm font-bold tracking-tight",
+            "font-bold tracking-tight",
             dark ? "text-panel-foreground" : "text-foreground",
           )}
         >

@@ -7,16 +7,24 @@ const nextId = () => `${Date.now()}-${counter++}`;
 
 interface Options {
   websiteId: string | null;
+  token?: string | null;
   initialPrompt?: string | null;
   onFinal?: () => void;
+  onUsage?: (event: { creditsUsed: number; balance: number }) => void;
+  onInsufficientCredits?: (prompt: string) => void;
 }
 
-export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) {
+export function useBuildSession({ websiteId, token, initialPrompt, onFinal, onUsage, onInsufficientCredits }: Options) {
   const socketRef = useRef<WebSocket | null>(null);
   const pendingPrompt = useRef<string | null>(initialPrompt ?? null);
   const initialPromptSent = useRef(false);
   const finalHandler = useRef(onFinal);
+  const usageHandler = useRef(onUsage);
+  const insufficientCreditsHandler = useRef(onInsufficientCredits);
+  const lastPrompt = useRef<string | null>(null);
   finalHandler.current = onFinal;
+  usageHandler.current = onUsage;
+  insufficientCreditsHandler.current = onInsufficientCredits;
 
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [state, setState] = useState<SessionState>("idle");
@@ -38,12 +46,14 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
   );
 
   useEffect(() => {
-    if (!websiteId) return;
+    if (!websiteId || !token) return;
 
     initialPromptSent.current = false;
     setState("connecting");
     setClosedInvalid(false);
-    const socket = new WebSocket(`${WS_URL}/?websiteId=${encodeURIComponent(websiteId)}`);
+    const socket = new WebSocket(
+      `${WS_URL}/?websiteId=${encodeURIComponent(websiteId)}&token=${encodeURIComponent(token ?? "")}`,
+    );
     socketRef.current = socket;
 
     socket.onopen = () => {
@@ -53,6 +63,7 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
       if (prompt && !initialPromptSent.current) {
         initialPromptSent.current = true;
         pendingPrompt.current = null;
+        lastPrompt.current = prompt;
         append({ kind: "user", id: nextId(), text: prompt });
         setState("ai_processing");
         socket.send(JSON.stringify({ type: "chat", prompt }));
@@ -103,9 +114,15 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
         append({ kind: "model", id: nextId(), text: event.response });
         setNonce(Date.now());
         finalHandler.current?.();
+        lastPrompt.current = null;
+      } else if (event.type === "usage") {
+        usageHandler.current?.(event);
       } else if (event.type === "error") {
         setState("error");
         append({ kind: "error", id: nextId(), text: event.message });
+        if (event.code === "INSUFFICIENT_CREDITS") {
+          insufficientCreditsHandler.current?.(lastPrompt.current ?? "");
+        }
       }
     };
 
@@ -129,7 +146,7 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
       socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [websiteId, append]);
+  }, [websiteId, token, append]);
 
   const busy = state === "ai_processing" || state === "running_tool" || state === "connecting";
 
@@ -141,6 +158,7 @@ export function useBuildSession({ websiteId, initialPrompt, onFinal }: Options) 
       if (!socket || socket.readyState !== WebSocket.OPEN) return false;
       append({ kind: "user", id: nextId(), text: value });
       setState("ai_processing");
+      lastPrompt.current = value;
       socket.send(JSON.stringify({ type: "chat", prompt: value }));
       return true;
     },

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import { OAuth2Client } from "google-auth-library";
 import { config } from "../config";
 import dbClient from "../prisma/db";
+import { CreditService } from "../billing/creditService";
 
 
 authRouter.post("/", async (req, res) => {
@@ -41,7 +42,7 @@ authRouter.post("/", async (req, res) => {
         });
 
         if (!user) {
-            user = await dbClient.User.create({
+            user = await CreditService.createUserWithSignupBonus({
                 email,
                 name,
                 googleId,

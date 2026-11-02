@@ -1,33 +1,135 @@
 // use prisma-next
 
 model User {
-  id        String             @id @default(uuid())
-  email     String             @unique
-  name      String?
-  googleId  String             @unique
-  createdAt TimestamptzString  @default(now())
-  updatedAt TimestamptzString  @default(now())
-  websites  Website[]
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  name               String?
+  googleId           String              @unique
+  createdAt          TimestamptzString   @default(now())
+  updatedAt          TimestamptzString   @default(now())
+  websites           Website[]
+  creditWallet       CreditWallet?
+  creditTransactions CreditTransaction[]
+  subscription       Subscription?
+  orders             Order[]
+  usageEvents        UsageEvent[]
 }
 
-model Website{
-  id           String             @id
+model Website {
+  id           String            @id
   userId       String
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   templateName String
   title        String
-  createdAt    TimestamptzString  @default(now())
+  createdAt    TimestamptzString @default(now())
   Messages     Message[]
+  usageEvents  UsageEvent[]
 }
 
-model Message{
-  id                   String             @id @default(uuid())
+model Message {
+  id                   String            @id @default(uuid())
   websiteId            String
-  website              Website           @relation(fields:[websiteId],references:[id],onDelete:Cascade)
-  createdAt            TimestamptzString  @default(now())
+  website              Website           @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  createdAt            TimestamptzString @default(now())
 
   role                 String
   text                 String?
   functionCallName     String?
   functionCallResponse String?
+  usageEvents          UsageEvent[]
+}
+
+model Plan {
+  id             String            @id @default(uuid())
+  key            String            @unique
+  name           String
+  monthlyCredits Int
+  priceMinor     Int
+  currency       String
+  interval       String
+  isActive       Boolean
+  createdAt      TimestamptzString @default(now())
+  subscriptions  Subscription[]
+  orders         Order[]
+}
+
+model Subscription {
+  id                     String            @id @default(uuid())
+  userId                 String            @unique
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId                 String
+  plan                   Plan              @relation(fields: [planId], references: [id])
+  status                 String
+  currentPeriodEnd       TimestamptzString
+  provider               String
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  createdAt              TimestamptzString @default(now())
+  updatedAt              TimestamptzString @default(now())
+}
+
+model CreditWallet {
+  id        String            @id @default(uuid())
+  userId    String            @unique
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Int
+  createdAt TimestamptzString @default(now())
+  updatedAt TimestamptzString @default(now())
+}
+
+model CreditTransaction {
+  id             String            @id @default(uuid())
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           String
+  amount         Int
+  balanceAfter   Int
+  reason         String
+  idempotencyKey String            @unique
+  usageEventId   String?
+  orderId        String?
+  createdAt      TimestamptzString @default(now())
+}
+
+model UsageEvent {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  websiteId         String
+  website           Website           @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  messageId         String?
+  message           Message?          @relation(fields: [messageId], references: [id])
+  model             String
+  inputTokens       Int
+  outputTokens      Int
+  cachedInputTokens Int
+  creditsCharged    Int
+  createdAt         TimestamptzString @default(now())
+}
+
+model Order {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind              String
+  planId            String?
+  plan              Plan?             @relation(fields: [planId], references: [id])
+  credits           Int?
+  amountMinor       Int
+  currency          String
+  status            String
+  provider          String
+  providerOrderId   String?
+  providerPaymentId String?
+  createdAt         TimestamptzString @default(now())
+  updatedAt         TimestamptzString @default(now())
+}
+
+model WebhookEvent {
+  id              String             @id @default(uuid())
+  provider        String
+  providerEventId String             @unique
+  payload         Json
+  processedAt     TimestamptzString?
+  createdAt       TimestamptzString  @default(now())
 }

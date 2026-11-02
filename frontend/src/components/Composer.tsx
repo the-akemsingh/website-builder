@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface ComposerProps {
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: string) => boolean | void | Promise<boolean | void>;
   disabled?: boolean;
   placeholder?: string;
   tone?: "light" | "dark";
   hint?: string | undefined;
   autoFocus?: boolean;
+  initialValue?: string;
 }
 
 export function Composer({
@@ -19,8 +20,9 @@ export function Composer({
   tone = "light",
   hint,
   autoFocus,
+  initialValue = "",
 }: ComposerProps) {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialValue);
   const [touched, setTouched] = useState(false);
   const empty = value.trim().length === 0;
   const dark = tone === "dark";
@@ -29,7 +31,8 @@ export function Composer({
     event?.preventDefault();
     setTouched(true);
     if (empty || disabled) return;
-    onSubmit(value.trim());
+    const accepted = onSubmit(value.trim());
+    if (accepted === false) return;
     setValue("");
     setTouched(false);
   };

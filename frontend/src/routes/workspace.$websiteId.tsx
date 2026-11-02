@@ -6,28 +6,25 @@ import { AppHeader } from "@/components/AppHeader";
 import { BuildFeed } from "@/components/BuildFeed";
 import { Composer } from "@/components/Composer";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useBuildSession } from "@/hooks/useBuildSession";
-import { ApiError, downloadSourceCode, getWebsite } from "@/lib/api";
+import { ApiError, downloadSourceCode, getBillingMe, getWebsite } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { FeedItem, WebsiteDetails } from "@/lib/types";
+import { noIndexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/workspace/$websiteId")({
   validateSearch: (search: Record<string, unknown>): { prompt?: string | undefined } => ({
     prompt: typeof search["prompt"] === "string" ? (search["prompt"] as string) : undefined,
   }),
   head: () => ({
-    meta: [
-      { title: "Workspace — Forge" },
-      {
-        name: "description",
-        content: "Chat with the builder on the left, watch your live website preview on the right.",
-      },
-      { property: "og:title", content: "Workspace — Forge" },
-      {
-        property: "og:description",
-        content: "Chat with the builder on the left, watch your live website preview on the right.",
-      },
-    ],
+    meta: [{ title: "Workspace — Forge" }, ...noIndexHead.meta],
   }),
   component: Workspace,
 });
@@ -89,16 +86,34 @@ function Workspace() {
   const [initialPrompt] = useState<string | null>(prompt ?? null);
   const [previewReady, setPreviewReady] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [creditsDialogOpen, setCreditsDialogOpen] = useState(false);
+  const pricingSearch = pendingPrompt
+    ? { websiteId, prompt: pendingPrompt }
+    : { websiteId };
 
   const onFinal = useCallback(() => {
     setPreviewReady(true);
     setPreviewNonce(Date.now());
   }, []);
 
+  const onUsage = useCallback((event: { creditsUsed: number; balance: number }) => {
+    setBalance(event.balance);
+  }, []);
+
+  const onInsufficientCredits = useCallback((promptText: string) => {
+    setPendingPrompt(promptText);
+    setCreditsDialogOpen(true);
+  }, []);
+
   const { feed, seedFeed, state, busy, connected, closedInvalid, sendPrompt } = useBuildSession({
     websiteId,
+    token: session?.token ?? null,
     initialPrompt,
     onFinal,
+    onUsage,
+    onInsufficientCredits,
   });
 
   useEffect(() => {
@@ -131,6 +146,13 @@ function Workspace() {
       active = false;
     };
   }, [initialPrompt, ready, session, websiteId, navigate, signOut, seedFeed]);
+
+  useEffect(() => {
+    if (!session) return;
+    getBillingMe(session.token)
+      .then((billing) => setBalance(billing.balance))
+      .catch(() => setBalance(null));
+  }, [session]);
 
   const previewUrl = useMemo(() => {
     if (!previewReady || !details?.url) return null;
@@ -211,6 +233,13 @@ function Workspace() {
               />
               {STATE_LABEL[state] ?? state}
             </span>
+            <Link
+              to="/pricing"
+              search={pricingSearch}
+              className="mono rounded-full border border-panel-border px-3 py-1 text-[11px] text-panel-muted transition-colors hover:border-accent hover:text-panel-foreground"
+            >
+              {balance === null ? "Credits —" : `${balance.toLocaleString()} credits`}
+            </Link>
             <Button
               variant="quiet"
               size="pillIcon"
@@ -279,6 +308,35 @@ function Workspace() {
           </section>
         )}
       </div>
+      <Dialog open={creditsDialogOpen} onOpenChange={setCreditsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>You’re out of credits</DialogTitle>
+            <DialogDescription>
+              Choose a plan or add credits to continue this build. Your prompt is saved for when you return.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              asChild
+              onClick={() => setCreditsDialogOpen(false)}
+            >
+              <Link to="/pricing" search={pricingSearch}>
+                Upgrade
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              onClick={() => setCreditsDialogOpen(false)}
+            >
+              <Link to="/pricing" search={pricingSearch}>
+                Buy credits
+              </Link>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

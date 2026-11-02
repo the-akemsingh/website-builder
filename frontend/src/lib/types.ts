@@ -37,6 +37,31 @@ export interface CreateWebsiteResponse {
   projectUrl: string;
 }
 
+export interface BillingPlan {
+  id: string;
+  key: string;
+  name: string;
+  monthlyCredits: number;
+  priceMinor: number;
+  currency: string;
+  interval: string;
+}
+
+export interface BillingMe {
+  balance: number;
+  plan: {
+    key: string;
+    name: string;
+    monthlyCredits: number;
+    status: string;
+    currentPeriodEnd: string;
+  } | null;
+  latestOrder?: {
+    id: string;
+    status: "pending" | "paid" | "failed";
+  } | null;
+}
+
 export type ToolName =
   | "readFile"
   | "writeFile"
@@ -49,7 +74,8 @@ export type ServerEvent =
   | { type: "toolStart"; tool: ToolName }
   | { type: "toolEnd"; tool: ToolName; result?: string; error?: string }
   | { type: "final"; response: string }
-  | { type: "error"; message: string };
+  | { type: "usage"; creditsUsed: number; balance: number }
+  | { type: "error"; message: string; code?: string; balance?: number };
 
 export type SessionState =
   | "idle"

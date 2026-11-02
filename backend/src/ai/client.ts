@@ -1,16 +1,31 @@
 import { GoogleGenAI, type Content } from '@google/genai';
 import { config } from '../config';
 import type { ITool } from '../types/ITool';
+import {
+    DEFAULT_MODEL,
+    MAX_AGENT_ITERATIONS,
+    MAX_OUTPUT_TOKENS_PER_RUN,
+} from '../billing/creditsConfig';
+import {
+    extractProviderUsage,
+    recordAndChargeLlmCall,
+    type MeteringContext,
+} from '../billing/metering';
 
 const llmClient = new GoogleGenAI({
     apiKey: config.get("geminiApiKey")
 });
 
+const MODEL = DEFAULT_MODEL;
+
 //prompt to find which template will be used
-export async function getProjectNameAndTemplate(prompt: string): Promise<{ templateName: string; title: string }> {
+export async function getProjectNameAndTemplate(
+    prompt: string,
+    metering?: MeteringContext,
+): Promise<{ templateName: string; title: string }> {
     try {
         const response = await llmClient.models.generateContent({
-            model: "gemini-3.1-flash-lite",
+            model: MODEL,
             contents:
                 `
                 Choose the appropriate project templateName and the project title for the user's request.
@@ -36,6 +51,7 @@ export async function getProjectNameAndTemplate(prompt: string): Promise<{ templ
                 {templateName:"next",title:"Personal Portfolio"}
             `,
             config: {
+                maxOutputTokens: 256,
                 systemInstruction: `
 You are a project templateName classifier and project title generator.
 
@@ -75,12 +91,22 @@ Example:
 `
             }
         });
+
+        if (metering) {
+            await recordAndChargeLlmCall(metering, MODEL, extractProviderUsage(response));
+        }
+
         if (response.text) {
-            return JSON.parse(response.text);
+            try {
+                return JSON.parse(response.text);
+            } catch {
+                return { "templateName": "next", "title": "New App" };
+            }
         }
         return { "templateName": "next", "title": "New App" };
     } catch (error) {
         console.error("Error generating content:", error);
+        if (metering) throw error;
         return { "templateName": "next", "title": "New App" };
     }
 }
@@ -92,7 +118,8 @@ export async function invokeLLM(
     tools: ITool[],
     chatHistory: Content[] = [],
     template?: string,
-    onEvent?: (event: any) => void
+    onEvent?: (event: any) => void,
+    metering?: MeteringContext,
 ): Promise<{ response: string, newHistory: Content[] }> {
     try {
         console.log("inside invokeLLM")
@@ -129,10 +156,11 @@ Guidelines:
 - Follow the project's existing code style and conventions.`;
 
         const chat = llmClient.chats.create({
-            model: "gemini-3.1-flash-lite",
+            model: MODEL,
             config: {
                 systemInstruction,
-                tools: geminiTools
+                tools: geminiTools,
+                maxOutputTokens: Math.min(8192, MAX_OUTPUT_TOKENS_PER_RUN),
             },
             history: chatHistory
         });
@@ -140,12 +168,25 @@ Guidelines:
         // Function calling loop: keep executing tools until we get a final text response
         let message: string | any[] = userPrompt;
         let finalResponse: string;
-        const MAX_TOOL_ROUNDS = 30; // safety cap so the agent can never loop forever
         let toolRounds = 0;
+        let outputTokensUsed = 0;
         while (true) {
             console.log("sending message to chat")
             const response = await chat.sendMessage({ message });
             console.log("response received")
+
+            const usage = extractProviderUsage(response);
+            outputTokensUsed += usage.outputTokens;
+
+            if (metering) {
+                await recordAndChargeLlmCall(metering, MODEL, usage);
+            }
+
+            if (outputTokensUsed >= MAX_OUTPUT_TOKENS_PER_RUN) {
+                finalResponse = "Stopped: the agent exceeded the maximum output tokens for this run.";
+                break;
+            }
+
             const parts = response.candidates?.[0]?.content?.parts ?? [];
             const functionCalls = parts.filter(part => part.functionCall).map(part => part.functionCall!);
 
@@ -157,7 +198,7 @@ Guidelines:
             }
 
             console.log("tool calls found - executing tools")
-            if (++toolRounds > MAX_TOOL_ROUNDS) {
+            if (++toolRounds > MAX_AGENT_ITERATIONS) {
                 finalResponse = "Stopped: the agent exceeded the maximum number of tool execution rounds.";
                 break;
             }
@@ -208,7 +249,7 @@ Guidelines:
         const newHistory = chat.getHistory();
         console.log("new history created")
         onEvent?.({ type: 'log', message: 'Finished AI processing.' });
-        return { response: finalResponse, newHistory }
+        return { response: finalResponse!, newHistory }
     } catch (error) {
         console.error("Error generating content:", error);
         onEvent?.({ type: 'error', message: 'Internal server error in AI processing' });

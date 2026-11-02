@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
 import { Composer } from "@/components/Composer";
@@ -7,23 +7,23 @@ import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import { ApiError, API_URL, checkBackendHealth, createWebsite } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { absoluteUrl, jsonLd, publicPageHead, SITE_NAME } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): { prompt?: string } => {
+    const result: { prompt?: string } = {};
+    if (typeof search["prompt"] === "string") result.prompt = search["prompt"];
+    return result;
+  },
   head: () => ({
-    meta: [
-      { title: "Forge — Describe a website, watch it build" },
-      {
-        name: "description",
-        content:
-          "Sign in, write one prompt, and Forge spins up a live website project you can keep refining in chat.",
-      },
-      { property: "og:title", content: "Forge — Describe a website, watch it build" },
-      {
-        property: "og:description",
-        content:
-          "Sign in, write one prompt, and Forge spins up a live website project you can keep refining in chat.",
-      },
-    ],
+    ...publicPageHead({
+      title: "Forge — Describe a website, watch it build",
+      description:
+        "Sign in, write one prompt, and Forge spins up a live website project you can keep refining in chat.",
+      path: "/",
+    }),
   }),
   component: Index,
 });
@@ -35,11 +35,15 @@ const EXAMPLES = [
 ];
 
 function Index() {
+  const { prompt: returnedPrompt } = Route.useSearch();
   const { session, ready } = useAuth();
   const navigate = useNavigate();
   const [healthy, setHealthy] = useState<boolean | null>(null);
   const [creating, setCreating] = useState(false);
   const [seed, setSeed] = useState<string | null>(null);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(returnedPrompt ?? null);
+  const [creditsDialogOpen, setCreditsDialogOpen] = useState(false);
+  const pricingSearch = pendingPrompt ? { prompt: pendingPrompt } : {};
 
   useEffect(() => {
     let active = true;
@@ -51,6 +55,7 @@ function Index() {
 
   async function start(prompt: string) {
     if (!session) return;
+    setPendingPrompt(null);
     setCreating(true);
     try {
       const project = await createWebsite(prompt, session.token);
@@ -66,12 +71,29 @@ function Index() {
         window.localStorage.removeItem("forge.session");
         window.location.reload();
       }
+      if (error instanceof ApiError && error.status === 402) {
+        setPendingPrompt(prompt);
+        setCreditsDialogOpen(true);
+      }
       setCreating(false);
     }
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: SITE_NAME,
+            url: absoluteUrl("/"),
+            description:
+              "A prompt-based website builder with live previews and chat-based refinement.",
+          }),
+        }}
+      />
       <AppHeader />
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-16">
@@ -102,8 +124,9 @@ function Index() {
           ) : (
             <>
               <Composer
-                key={seed ?? "composer"}
+                key={seed ?? pendingPrompt ?? "composer"}
                 autoFocus
+                initialValue={pendingPrompt ?? ""}
                 onSubmit={start}
                 placeholder="Build a modern portfolio website for a photographer…"
               />
@@ -124,6 +147,25 @@ function Index() {
             </>
           )}
         </div>
+
+        <Dialog open={creditsDialogOpen} onOpenChange={setCreditsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>You’re out of credits</DialogTitle>
+              <DialogDescription>
+                Your prompt is saved. Choose a plan or add credits, then continue building.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button asChild onClick={() => setCreditsDialogOpen(false)}>
+                <Link to="/pricing" search={pricingSearch}>Upgrade</Link>
+              </Button>
+              <Button asChild variant="outline" onClick={() => setCreditsDialogOpen(false)}>
+                <Link to="/pricing" search={pricingSearch}>Buy credits</Link>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <p className="mono mt-10 text-xs text-muted-foreground">
           <span

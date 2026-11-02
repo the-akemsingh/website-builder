@@ -6,9 +6,9 @@ import chatRouter from './routers/chatRouter';
 import socketMessageHandler from './ws/socketMessageHandler';
 import authRouter from './routers/authRouter';
 import authentication from './middleware/auth';
+import billingRouter, { webhookHandler } from './routers/billingRouter';
 
 const app = express();
-app.use(express.json())
 app.use(cors());
 
 const PORT = config.get("apiServerPort");
@@ -20,6 +20,16 @@ try {
     console.error('Configuration error:', error);
     process.exit(1);
 }
+
+// Capture raw body for webhook signature verification
+app.use('/api/v1/webhooks', express.json({
+    verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+    },
+}));
+app.post('/api/v1/webhooks/:provider', webhookHandler);
+
+app.use(express.json())
 
 const httpServer = app.listen(PORT, () => {
     console.log("api server running on port - ", PORT)
@@ -36,6 +46,7 @@ wss.on("connection", (socket: WebSocket, request: import('http').IncomingMessage
 
 app.use("/api/v1/auth/google", authRouter)
 app.use("/api/v1/website", authentication, chatRouter)
+app.use("/api/v1/billing", billingRouter)
 app.get("/api/v1/health", (_req, res) => {
     res.sendStatus(200);
     return
