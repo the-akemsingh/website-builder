@@ -8,12 +8,13 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
+import { Route as rootRouteImport } from './routes/__root.tsx'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PricingRouteImport } from './routes/pricing'
-import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as BillingReturnRouteImport } from './routes/billing.return'
-import { Route as WorkspaceWebsiteIdRouteImport } from './routes/workspace.$websiteId'
+import { Route as PricingRouteImport } from './routes/pricing.tsx'
+import { Route as AppIndexRouteImport } from './routes/app.index.tsx'
+import { Route as AppWebsiteIdRouteImport } from './routes/app.$websiteId.tsx'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback.tsx'
+import { Route as BillingReturnRouteImport } from './routes/billing.return.tsx'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -25,9 +26,19 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectsRoute = ProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/app/',
+  path: '/app/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppWebsiteIdRoute = AppWebsiteIdRouteImport.update({
+  id: '/app/$websiteId',
+  path: '/app/$websiteId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BillingReturnRoute = BillingReturnRouteImport.update({
@@ -35,56 +46,66 @@ const BillingReturnRoute = BillingReturnRouteImport.update({
   path: '/billing/return',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WorkspaceWebsiteIdRoute = WorkspaceWebsiteIdRouteImport.update({
-  id: '/workspace/$websiteId',
-  path: '/workspace/$websiteId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
-  '/projects': typeof ProjectsRoute
+  '/app/$websiteId': typeof AppWebsiteIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/billing/return': typeof BillingReturnRoute
-  '/workspace/$websiteId': typeof WorkspaceWebsiteIdRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
-  '/projects': typeof ProjectsRoute
+  '/app/$websiteId': typeof AppWebsiteIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/billing/return': typeof BillingReturnRoute
-  '/workspace/$websiteId': typeof WorkspaceWebsiteIdRoute
+  '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
-  '/projects': typeof ProjectsRoute
+  '/app/$websiteId': typeof AppWebsiteIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/billing/return': typeof BillingReturnRoute
-  '/workspace/$websiteId': typeof WorkspaceWebsiteIdRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/pricing' | '/projects' | '/billing/return' | '/workspace/$websiteId'
+    | '/'
+    | '/pricing'
+    | '/app/$websiteId'
+    | '/auth/callback'
+    | '/billing/return'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/pricing' | '/projects' | '/billing/return' | '/workspace/$websiteId'
+    | '/'
+    | '/pricing'
+    | '/app/$websiteId'
+    | '/auth/callback'
+    | '/billing/return'
+    | '/app'
   id:
     | '__root__'
     | '/'
     | '/pricing'
-    | '/projects'
+    | '/app/$websiteId'
+    | '/auth/callback'
     | '/billing/return'
-    | '/workspace/$websiteId'
+    | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PricingRoute: typeof PricingRoute
-  ProjectsRoute: typeof ProjectsRoute
+  AppWebsiteIdRoute: typeof AppWebsiteIdRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   BillingReturnRoute: typeof BillingReturnRoute
-  WorkspaceWebsiteIdRoute: typeof WorkspaceWebsiteIdRoute
+  AppIndexRoute: typeof AppIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -103,11 +124,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/projects': {
-      id: '/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof ProjectsRouteImport
+    '/app/': {
+      id: '/app/'
+      path: '/app'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/$websiteId': {
+      id: '/app/$websiteId'
+      path: '/app/$websiteId'
+      fullPath: '/app/$websiteId'
+      preLoaderRoute: typeof AppWebsiteIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/billing/return': {
@@ -117,22 +152,16 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BillingReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/workspace/$websiteId': {
-      id: '/workspace/$websiteId'
-      path: '/workspace/$websiteId'
-      fullPath: '/workspace/$websiteId'
-      preLoaderRoute: typeof WorkspaceWebsiteIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PricingRoute: PricingRoute,
-  ProjectsRoute: ProjectsRoute,
+  AppWebsiteIdRoute: AppWebsiteIdRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   BillingReturnRoute: BillingReturnRoute,
-  WorkspaceWebsiteIdRoute: WorkspaceWebsiteIdRoute,
+  AppIndexRoute: AppIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

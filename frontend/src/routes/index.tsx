@@ -1,188 +1,153 @@
-import { useEffect, useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { toast } from "sonner";
-import { AppHeader } from "@/components/AppHeader";
-import { Composer } from "@/components/Composer";
-import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { ApiError, API_URL, checkBackendHealth, createWebsite } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
-import { Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { absoluteUrl, jsonLd, publicPageHead, SITE_NAME } from "@/lib/seo";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUp, Check, Hammer, Loader2, Play } from "lucide-react";
+import { SiteNav } from "@/components/SiteNav";
+import { Footer } from "@/components/Footer";
+import { Accordion } from "@/components/Accordion";
+import { useAuth } from "@/features/auth/auth";
+import { useStartBuild } from "@/features/chat/useSubmitPrompt";
+import { pendingPrompt } from "@/lib/brand";
 
 export const Route = createFileRoute("/")({
-  validateSearch: (search: Record<string, unknown>): { prompt?: string } => {
-    const result: { prompt?: string } = {};
-    if (typeof search["prompt"] === "string") result.prompt = search["prompt"];
-    return result;
-  },
   head: () => ({
-    ...publicPageHead({
-      title: "Forge — Describe a website, watch it build",
-      description:
-        "Sign in, write one prompt, and Forge spins up a live website project you can keep refining in chat.",
-      path: "/",
-    }),
+    meta: [
+      { title: "Sitewright — Describe a website, get a website" },
+      { name: "description", content: "Write a prompt and an AI agent builds your website with a live preview." },
+      { property: "og:title", content: "Sitewright — Describe a website, get a website" },
+      { property: "og:description", content: "Write a prompt and an AI agent builds your website with a live preview." },
+    ],
   }),
-  component: Index,
+  component: Landing,
 });
 
-const EXAMPLES = [
-  "Build a modern portfolio website for a photographer",
-  "A landing page for a neighbourhood coffee roastery with a menu",
-  "A one-page site for an indie climbing gym with class times",
+const faq = [
+  { q: "How do credits work?", a: "Every build or change uses credits based on how much work the agent does. You see the cost after each response and your balance updates live." },
+  { q: "Can I get a refund?", a: "Unused top-up credits can be refunded within 14 days of purchase. Subscription months already started are not refunded." },
+  { q: "How do I cancel?", a: "Cancel any time from billing. Your plan stays active until the end of the current period, then you move to Free." },
+  { q: "Who owns the generated sites?", a: "You do. Everything the agent generates for you is yours to use, edit and publish commercially." },
 ];
 
-function Index() {
-  const { prompt: returnedPrompt } = Route.useSearch();
-  const { session, ready } = useAuth();
-  const navigate = useNavigate();
-  const [healthy, setHealthy] = useState<boolean | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [seed, setSeed] = useState<string | null>(null);
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(returnedPrompt ?? null);
-  const [creditsDialogOpen, setCreditsDialogOpen] = useState(false);
-  const pricingSearch = pendingPrompt ? { prompt: pendingPrompt } : {};
+const demos = [
+  { tag: "Cafe", title: "Coffee Cartel", desc: "A specialty roaster with a menu, locations and a loyalty signup." },
+  { tag: "Portfolio", title: "Studio Mica", desc: "A ceramicist's portfolio with a shop and workshop bookings." },
+  { tag: "SaaS", title: "Ledgerline", desc: "Product landing page with pricing and a docs section." },
+] as const;
 
+function Composer() {
+  const [prompt, setPrompt] = useState("");
+  const build = useStartBuild();
+  const resumed = useRef(false);
+
+  // Resume a prompt saved before sign-in or checkout.
   useEffect(() => {
-    let active = true;
-    checkBackendHealth().then((ok) => active && setHealthy(ok));
-    return () => {
-      active = false;
-    };
+    const p = pendingPrompt.get();
+    if (p && !p.websiteId) setPrompt(p.prompt);
   }, []);
 
-  async function start(prompt: string) {
-    if (!session) return;
-    setPendingPrompt(null);
-    setCreating(true);
-    try {
-      const project = await createWebsite(prompt, session.token);
-      navigate({
-        to: "/workspace/$websiteId",
-        params: { websiteId: project.websiteId },
-        search: { prompt },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Something went wrong.";
-      toast.error(message);
-      if (error instanceof ApiError && error.status === 401) {
-        window.localStorage.removeItem("forge.session");
-        window.location.reload();
-      }
-      if (error instanceof ApiError && error.status === 402) {
-        setPendingPrompt(prompt);
-        setCreditsDialogOpen(true);
-      }
-      setCreating(false);
-    }
-  }
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (prompt.trim()) build.start(prompt.trim());
+  };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: jsonLd({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            name: SITE_NAME,
-            url: absoluteUrl("/"),
-            description:
-              "A prompt-based website builder with live previews and chat-based refinement.",
-          }),
-        }}
+    <form id="prompt" onSubmit={submit} className="panel mx-auto mt-10 max-w-3xl p-3 text-left">
+      <label htmlFor="prompt" className="sr-only">Describe your website</label>
+      <textarea
+        id="prompt-input"
+        rows={4}
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && submit(e)}
+        placeholder="A portfolio for a ceramic artist with a shop and a booking page…"
+        className="w-full resize-none bg-transparent p-3 text-lg text-foreground outline-none placeholder:text-body/60"
       />
-      <AppHeader />
-
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-16">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          Describe it. <span className="text-accent">Forge builds it.</span>
-        </h1>
-        <p className="mt-3 max-w-xl text-base text-muted-foreground">
-          One prompt spins up a real project with a live preview. Keep chatting to change it.
+      <div className="flex items-center justify-between gap-3 px-2 pb-1">
+        <p className="text-sm" role="status">
+          {build.isError && !build.errorIsCredits ? <span className="text-danger">Couldn't start the build. Try again.</span> : null}
         </p>
+        <button type="submit" className="btn btn-primary" disabled={!prompt.trim() || build.isPending}>
+          {build.isPending ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+          Build it
+        </button>
+      </div>
+    </form>
+  );
+}
 
-        <div className="mt-8">
-          {!ready ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> Loading…
-            </div>
-          ) : !session ? (
-            <div className="rounded-3xl border border-border bg-card p-8">
-              <p className="mb-5 text-sm text-muted-foreground">
-                Sign in with Google to start a project.
-              </p>
-              <GoogleSignInButton />
-            </div>
-          ) : creating ? (
-            <div className="flex items-center gap-3 rounded-3xl border border-border bg-card p-8 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin text-accent" />
-              Creating your project and starting the preview server…
-            </div>
-          ) : (
-            <>
-              <Composer
-                key={seed ?? pendingPrompt ?? "composer"}
-                autoFocus
-                initialValue={pendingPrompt ?? ""}
-                onSubmit={start}
-                placeholder="Build a modern portfolio website for a photographer…"
-              />
-              <div className="mt-4 flex flex-wrap gap-2">
-                {EXAMPLES.map((example) => (
-                  <button
-                    key={example}
-                    onClick={() => {
-                      setSeed(example);
-                      start(example);
-                    }}
-                    className="rounded-full border border-border bg-card px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:border-accent hover:text-foreground"
-                  >
-                    {example}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+/** Signed-in users get the prompt composer; signed-out users get two entry buttons. */
+function HeroActions() {
+  const { status, signIn } = useAuth();
 
-        <Dialog open={creditsDialogOpen} onOpenChange={setCreditsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>You’re out of credits</DialogTitle>
-              <DialogDescription>
-                Your prompt is saved. Choose a plan or add credits, then continue building.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button asChild onClick={() => setCreditsDialogOpen(false)}>
-                <Link to="/pricing" search={pricingSearch}>Upgrade</Link>
-              </Button>
-              <Button asChild variant="outline" onClick={() => setCreditsDialogOpen(false)}>
-                <Link to="/pricing" search={pricingSearch}>Buy credits</Link>
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+  if (status === "authed") return <Composer />;
 
-        <p className="mono mt-10 text-xs text-muted-foreground">
-          <span
-            className={
-              healthy === null
-                ? "text-muted-foreground"
-                : healthy
-                  ? "text-success"
-                  : "text-destructive"
-            }
-          >
-            ●
-          </span>{" "}
-          {healthy === null ? "checking" : healthy ? "backend online" : "backend unreachable"} ·{" "}
-          {API_URL}
-        </p>
+  return (
+    <div className="mx-auto mt-10 flex max-w-3xl flex-col justify-center gap-3 sm:flex-row">
+      <button className="btn btn-primary" onClick={signIn} disabled={status === "loading"}>
+        <Hammer className="size-4" aria-hidden /> Build something
+      </button>
+      <a href="#demos" className="btn btn-secondary">
+        <Play className="size-4" aria-hidden /> See demos
+      </a>
+    </div>
+  );
+}
+
+function Demos() {
+  return (
+    <section id="demos" className="mx-auto max-w-6xl scroll-mt-24 px-6 pb-24" aria-labelledby="demos-heading">
+      <h2 id="demos-heading" className="display text-4xl sm:text-5xl">Built with Sitewright</h2>
+      <p className="mt-3 max-w-xl">Real sites the agent put together from a single sentence.</p>
+      <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {demos.map((d) => (
+          <li key={d.title} className="panel flex flex-col gap-3 p-6">
+            <span className="chip-accent w-fit">{d.tag}</span>
+            <h3 className="text-xl font-semibold">{d.title}</h3>
+            <p className="text-body">{d.desc}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Landing() {
+  return (
+    <div className="min-h-screen">
+      <SiteNav announce />
+      <main>
+        <section className="mx-auto max-w-6xl px-6 pb-24 pt-16 text-center sm:pt-24">
+          <h1 className="display text-5xl sm:text-7xl md:text-8xl">
+            Describe it.<br />We'll build it.
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-lg">
+            Tell the agent what you need. Watch it write, build and preview your website in real time.
+          </p>
+          <HeroActions />
+          <ul className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+            {["Free credits to start", "You own everything it builds"].map((t) => (
+              <li key={t} className="flex items-center gap-2"><Check className="size-4" strokeWidth={1.5} aria-hidden />{t}</li>
+            ))}
+          </ul>
+        </section>
+
+        <Demos />
+
+        <section className="mx-auto grid max-w-6xl gap-10 px-6 py-24 md:grid-cols-2" aria-labelledby="faq">
+          <h2 id="faq" className="display text-4xl sm:text-5xl">Questions,<br />answered.</h2>
+          <Accordion items={faq} />
+        </section>
+
+        <section className="mx-auto max-w-6xl px-6 pb-24">
+          <div className="rounded-[28px] bg-accent px-8 py-16 text-center sm:py-24">
+            <h2 className="display mx-auto max-w-2xl text-4xl text-ink sm:text-6xl">Your next website is one sentence away.</h2>
+            <div className="mt-10 flex flex-wrap justify-center gap-3">
+              <a href="#prompt" className="btn btn-ink">Start building</a>
+              <a href="/pricing" className="btn btn-ink-outline">See pricing</a>
+            </div>
+          </div>
+        </section>
       </main>
+      <Footer />
     </div>
   );
 }

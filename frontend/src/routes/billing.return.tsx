@@ -1,98 +1,69 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
-import { Button } from "@/components/ui/button";
-import { getBillingMe } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
-import { noIndexHead } from "@/lib/seo";
+import { api } from "@/lib/api";
+import { pendingPrompt } from "@/lib/brand";
+import { RequireAuth } from "@/features/auth/RequireAuth";
+import { billingKey } from "@/features/billing/billing";
 
 export const Route = createFileRoute("/billing/return")({
-  validateSearch: (search: Record<string, unknown>): {
-    orderId?: string;
-    websiteId?: string;
-    prompt?: string;
-  } => {
-    const result: { orderId?: string; websiteId?: string; prompt?: string } = {};
-    if (typeof search["orderId"] === "string") result.orderId = search["orderId"];
-    if (typeof search["websiteId"] === "string") result.websiteId = search["websiteId"];
-    if (typeof search["prompt"] === "string") result.prompt = search["prompt"];
-    return result;
-  },
-  head: () => ({
-    meta: [{ title: "Confirming payment — Forge" }, ...noIndexHead.meta],
-  }),
-  component: BillingReturn,
+  head: () => ({ meta: [{ title: "Confirming payment — Sitewright" }, { name: "robots", content: "noindex" }] }),
+  component: () => (
+    <RequireAuth>
+      <Return />
+    </RequireAuth>
+  ),
 });
 
-function BillingReturn() {
-  const { orderId, websiteId, prompt } = Route.useSearch();
-  const { session, ready } = useAuth();
+const TIMEOUT_MS = 90_000;
+
+function Return() {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
+  const qc = useQueryClient();
+  const [started] = useState(() => Date.now());
+  const timedOut = Date.now() - started > TIMEOUT_MS;
+  // The redirect itself proves nothing — poll until the backend says the order is paid.
+  const q = useQuery({
+    queryKey: ["billing", "return"],
+    queryFn: api.billingMe,
+    refetchInterval: (query) => {
+      const s = query.state.data?.latestOrder?.status;
+      return s === "paid" || s === "failed" || Date.now() - started > TIMEOUT_MS ? false : 2000;
+    },
+  });
+  const status = q.data?.latestOrder?.status;
 
   useEffect(() => {
-    if (!ready) return;
-    if (!session) {
-      navigate({ to: "/" });
-      return;
-    }
-
-    let active = true;
-    let attempts = 0;
-    const poll = async () => {
-      try {
-        const billing = await getBillingMe(session.token);
-        const order = orderId && billing.latestOrder?.id === orderId ? billing.latestOrder : null;
-        if (order?.status === "paid") {
-          if (websiteId) {
-            navigate({
-              to: "/workspace/$websiteId",
-              params: { websiteId },
-              search: { prompt },
-            });
-          } else {
-            navigate({ to: "/", search: prompt ? { prompt } : {} });
-          }
-          return;
-        }
-        if (order?.status === "failed") {
-          setError("Payment was not completed.");
-          return;
-        }
-        attempts += 1;
-        if (active && attempts < 30) window.setTimeout(poll, 1500);
-        else if (active) setError("Payment confirmation is taking longer than expected.");
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : "Couldn't confirm payment.");
-      }
-    };
-    poll();
-    return () => {
-      active = false;
-    };
-  }, [navigate, orderId, prompt, ready, session, websiteId]);
+    if (status !== "paid") return;
+    qc.setQueryData(billingKey, q.data);
+    const p = pendingPrompt.get();
+    if (p?.websiteId) navigate({ to: "/app/$websiteId", params: { websiteId: p.websiteId }, replace: true });
+    else navigate({ to: "/app", search: { paid: true }, replace: true });
+  }, [status, q.data, qc, navigate]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <AppHeader />
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-5 text-center">
-        {error ? (
+    <main className="flex min-h-screen items-center justify-center px-6 text-center">
+      <div className="max-w-sm" role="status">
+        {status === "failed" ? (
           <>
-            <h1 className="text-2xl font-bold">Payment needs attention</h1>
-            <p className="mt-3 text-sm text-muted-foreground">{error}</p>
-            <Button className="mt-6" onClick={() => navigate({ to: "/pricing" })}>
-              Back to plans
-            </Button>
+            <h1 className="display text-3xl">Payment didn't go through</h1>
+            <p className="mt-3">You weren't charged. You can try again from pricing.</p>
+            <Link to="/pricing" className="btn btn-primary mt-6">Back to pricing</Link>
+          </>
+        ) : timedOut || q.isError ? (
+          <>
+            <h1 className="display text-3xl">Still confirming</h1>
+            <p className="mt-3">This is taking longer than usual. Your credits will appear once the payment clears.</p>
+            <Link to="/app" className="btn btn-secondary mt-6">Go to my websites</Link>
           </>
         ) : (
           <>
-            <Loader2 className="size-6 animate-spin text-accent" />
-            <h1 className="mt-5 text-2xl font-bold">Confirming your payment</h1>
-            <p className="mt-3 text-sm text-muted-foreground">We’re checking the order status with Forge.</p>
+            <Loader2 className="mx-auto size-6 animate-spin text-foreground" />
+            <h1 className="display mt-4 text-3xl">Confirming your payment…</h1>
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

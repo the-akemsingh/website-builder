@@ -1,0 +1,32 @@
+/* Theme tokens. Dark is default; light theme is applied via [data-theme="light"] on <html>. */
+:root {
+  --radius: 1.5rem;
+  --background: oklch(0.185 0.004 160);
+  --surface: oklch(0.21 0.006 155);
+  --surface-2: oklch(0.245 0.006 155);
+  --foreground: oklch(0.952 0.012 95);
+  --body: oklch(0.7 0.008 130);
+  --border: oklch(0.29 0.005 155);
+  --accent: oklch(0.965 0.15 112);
+  --ink: oklch(0.16 0.003 150);
+  --paper: oklch(1 0 0);
+  --danger: oklch(0.68 0.17 28);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --background: oklch(0.945 0.012 90);   /* warm cream page */
+  --surface: oklch(0.975 0.008 90);      /* card */
+  --surface-2: oklch(0.9 0.014 90);      /* hover / subtle fill */
+  --foreground: oklch(0.22 0.012 100);
+  --body: oklch(0.46 0.012 100);
+  --border: oklch(0.86 0.012 92);
+  --accent: oklch(0.9 0.17 112);
+  --ink: oklch(0.2 0.01 100);
+  --paper: oklch(1 0 0);
+  --danger: oklch(0.55 0.19 28);
+  /* Primary buttons read as dark "ink" buttons in light mode, matching the samples. */
+  --btn-primary-bg: var(--ink);
+  --btn-primary-fg: oklch(0.98 0.005 95);
+}
