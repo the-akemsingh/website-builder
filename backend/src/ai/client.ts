@@ -142,7 +142,17 @@ Guidelines:
 - Use installDependencies to install dependencies.
 - Use buildProject to generate the build of the project and get outcome if it succeded or failed.
 - Make sure all imports and dependencies are correct.
-- Follow the project's existing code style and conventions.`
+- Follow the project's existing code style and conventions.
+
+Final response requirements:
+- After the work is complete, respond with a concise, professional summary in Markdown.
+- Start with one short sentence stating what you built or changed.
+- Mention only the most important user-facing features or changes, using a short bullet list only when useful.
+- State whether the build succeeded or failed, and whether a preview is available.
+- Be specific to the user's request and avoid generic marketing language.
+- Do not describe colors, Tailwind CSS, internal implementation details, or tool activity unless they are relevant to the request.
+- Do not repeat the user's prompt, add a long preamble, or use unnecessary headings, badges, or emojis.
+- If the build failed, say so plainly and briefly identify the next action or relevant issue.`
             : `You are a website builder AI working inside a Docker container at /workspace.
 Use the provided tools (readFile, writeFile, deleteFile,installDependencies,buildProject) to read, write, delete files and to install dependencies to build the user's requested website.
 
@@ -153,7 +163,17 @@ Guidelines:
 - Use installDependencies to install dependencies.
 - Use buildProject to generate the build of the project and get outcome if it succeded or failed.
 - Make sure all imports and dependencies are correct.
-- Follow the project's existing code style and conventions.`;
+- Follow the project's existing code style and conventions.
+
+Final response requirements:
+- After the work is complete, respond with a concise, professional summary in Markdown.
+- Start with one short sentence stating what you built or changed.
+- Mention only the most important user-facing features or changes, using a short bullet list only when useful.
+- State whether the build succeeded or failed, and whether a preview is available.
+- Be specific to the user's request and avoid generic marketing language.
+- Do not describe colors, Tailwind CSS, internal implementation details, or tool activity unless they are relevant to the request.
+- Do not repeat the user's prompt, add a long preamble, or use unnecessary headings, badges, or emojis.
+- If the build failed, say so plainly and briefly identify the next action or relevant issue.`;
 
         const chat = llmClient.chats.create({
             model: MODEL,

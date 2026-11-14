@@ -64,3 +64,79 @@
 }
 @utility panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); }
 @utility skeleton { background: var(--color-surface-2); border-radius: 12px; animation: pulse 1.6s ease-in-out infinite; }
+
+@layer components {
+  .chat-markdown {
+    max-width: 72ch;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .chat-markdown > :first-child { margin-top: 0; }
+  .chat-markdown > :last-child { margin-bottom: 0; }
+  .chat-markdown p { margin: 0.65rem 0; }
+  .chat-markdown h1, .chat-markdown h2, .chat-markdown h3 {
+    margin: 1.25rem 0 0.5rem;
+    font-weight: 650;
+    line-height: 1.25;
+  }
+  .chat-markdown h1 { font-size: 1.35rem; }
+  .chat-markdown h2 { font-size: 1.15rem; }
+  .chat-markdown h3 { font-size: 1rem; }
+  .chat-markdown ul, .chat-markdown ol { margin: 0.65rem 0; padding-left: 1.4rem; }
+  .chat-markdown ul { list-style: disc; }
+  .chat-markdown ol { list-style: decimal; }
+  .chat-markdown li { padding-left: 0.25rem; }
+  .chat-markdown li + li { margin-top: 0.25rem; }
+  .chat-markdown blockquote {
+    margin: 0.8rem 0;
+    border-left: 3px solid var(--color-border);
+    padding-left: 0.9rem;
+    color: var(--color-body);
+  }
+  .chat-markdown a { color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px; }
+  .chat-markdown :not(pre) > code {
+    border: 1px solid var(--color-border);
+    border-radius: 0.35rem;
+    background: var(--color-surface-2);
+    padding: 0.1rem 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+  .chat-code {
+    margin: 0.9rem 0;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 0.65rem;
+    background: #161b22;
+  }
+  .chat-code-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid rgb(255 255 255 / 0.1);
+    padding: 0.4rem 0.65rem;
+    color: #a7b0be;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+  }
+  .chat-code-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 0.35rem;
+    padding: 0.2rem 0.35rem;
+    color: #c9d1d9;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+  }
+  .chat-code-copy:hover { background: rgb(255 255 255 / 0.1); }
+  .chat-code pre {
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    line-height: 1.55;
+  }
+}

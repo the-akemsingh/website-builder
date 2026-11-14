@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ChevronRight, ExternalLink, Loader2, RotateCw, Terminal, Wrench } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import rehypeHighlight from "rehype-highlight";
+import remarkGfm from "remark-gfm";
+import "highlight.js/styles/github-dark.css";
+import { ArrowUp, Check, CheckCircle2, ChevronRight, Copy, ExternalLink, Loader2, RotateCw, Terminal, Wrench } from "lucide-react";
 import { type WebsiteDetail } from "@/lib/api";
 import { pendingPrompt } from "@/lib/brand";
 import { useBuildStream, type ChatItem } from "./useBuildStream";
@@ -66,6 +70,12 @@ function Chat({ websiteId, stream }: { websiteId: string; stream: Stream }) {
         {stream.status === "building" && !stream.streaming && (
           <p className="flex items-center gap-2 text-sm" role="status"><Loader2 className="size-4 animate-spin" />Working…</p>
         )}
+        {stream.status === "ready" && stream.previewUrl && (
+          <p className="flex items-center gap-1.5 text-xs text-body" role="status">
+            <CheckCircle2 className="size-3.5 text-accent" aria-hidden />
+            Build complete · Preview available
+          </p>
+        )}
         {stream.status === "error" && <p className="text-sm text-danger" role="alert">{stream.error ?? "The build failed."} Send a message to try again.</p>}
         {stream.conn === "reconnecting" && <p className="text-sm" role="status">Reconnecting…</p>}
         {stream.conn === "failed" && <p className="text-sm text-danger" role="alert">Lost connection to the build. Refresh the page to reconnect.</p>}
@@ -91,7 +101,31 @@ function Item({ item }: { item: ChatItem }) {
   if (item.kind === "ai")
     return (
       <div>
-        <p className="whitespace-pre-wrap leading-relaxed text-foreground">{item.text}</p>
+        <div className="chat-markdown text-foreground">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeHighlight]}
+            components={{
+              a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a>,
+              code: ({ className, children, ...props }) => {
+                const content = String(children).replace(/\n$/, "");
+                const block = Boolean(className) || content.includes("\n");
+                if (!block) return <code {...props}>{children}</code>;
+                return (
+                  <div className="chat-code">
+                    <div className="chat-code-toolbar">
+                      <span>{className?.replace("language-", "") || "code"}</span>
+                      <CopyButton content={content} />
+                    </div>
+                    <pre><code className={className} {...props}>{content}</code></pre>
+                  </div>
+                );
+              },
+            }}
+          >
+            {item.text}
+          </ReactMarkdown>
+        </div>
         {item.credits != null && <p className="mt-1 text-xs">This build used {item.credits} credits</p>}
       </div>
     );
@@ -105,6 +139,29 @@ function Item({ item }: { item: ChatItem }) {
       </summary>
       <p className="ml-6 mt-1 break-all">{item.kind === "tool" ? item.detail ?? "No details" : item.text}</p>
     </details>
+  );
+}
+
+function CopyButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setCopyError(false);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopyError(true);
+    }
+  };
+
+  return (
+    <button type="button" className="chat-code-copy" onClick={copy} aria-label={copyError ? "Unable to copy code" : copied ? "Code copied" : "Copy code"}>
+      {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+      {copyError ? "Copy failed" : copied ? "Copied" : "Copy"}
+    </button>
   );
 }
 
