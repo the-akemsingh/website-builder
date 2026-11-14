@@ -51,7 +51,7 @@ function Dashboard() {
       )}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="display text-4xl sm:text-5xl">Your websites</h1>
-        <Link to="/" className="btn btn-primary"><Plus className="size-4" />New website</Link>
+        <Link to="/app/new" className="btn btn-primary"><Plus className="size-4" />New website</Link>
       </div>
 
       {q.isLoading && (

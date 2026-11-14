@@ -1,8 +1,13 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "./auth";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { status, signIn } = useAuth();
+  const { status } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (status === "anon") void navigate({ to: "/signin", replace: true });
+  }, [navigate, status]);
   if (status === "loading")
     return (
       <div className="mx-auto max-w-6xl px-6 py-16" aria-busy="true">
@@ -10,15 +15,6 @@ export function RequireAuth({ children }: { children: ReactNode }) {
         <div className="skeleton mt-6 h-40 w-full" />
       </div>
     );
-  if (status === "anon")
-    return (
-      <main className="mx-auto max-w-md px-6 py-24 text-center">
-        <h1 className="display text-4xl">Sign in to continue</h1>
-        <p className="mt-3">Your websites and credits live in your account.</p>
-        <button className="btn btn-primary mt-8" onClick={signIn}>
-          Continue with Google
-        </button>
-      </main>
-    );
+  if (status === "anon") return <main className="min-h-[40vh]" role="status">Redirecting to sign in…</main>;
   return <>{children}</>;
 }

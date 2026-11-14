@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as SigninRouteImport } from './routes/signin'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppWebsiteIdRouteImport } from './routes/app.$websiteId'
+import { Route as AppNewRouteImport } from './routes/app.new'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as BillingReturnRouteImport } from './routes/billing.return'
 
@@ -26,6 +28,11 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SigninRoute = SigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
@@ -34,6 +41,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppWebsiteIdRoute = AppWebsiteIdRouteImport.update({
   id: '/app/$websiteId',
   path: '/app/$websiteId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppNewRoute = AppNewRouteImport.update({
+  id: '/app/new',
+  path: '/app/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
@@ -50,7 +62,9 @@ const BillingReturnRoute = BillingReturnRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
+  '/signin': typeof SigninRoute
   '/app/$websiteId': typeof AppWebsiteIdRoute
+  '/app/new': typeof AppNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/billing/return': typeof BillingReturnRoute
   '/app/': typeof AppIndexRoute
@@ -58,7 +72,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
+  '/signin': typeof SigninRoute
   '/app/$websiteId': typeof AppWebsiteIdRoute
+  '/app/new': typeof AppNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/billing/return': typeof BillingReturnRoute
   '/app': typeof AppIndexRoute
@@ -67,7 +83,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/pricing': typeof PricingRoute
+  '/signin': typeof SigninRoute
   '/app/$websiteId': typeof AppWebsiteIdRoute
+  '/app/new': typeof AppNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/billing/return': typeof BillingReturnRoute
   '/app/': typeof AppIndexRoute
@@ -77,7 +95,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/pricing'
+    | '/signin'
     | '/app/$websiteId'
+    | '/app/new'
     | '/auth/callback'
     | '/billing/return'
     | '/app/'
@@ -85,7 +105,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/pricing'
+    | '/signin'
     | '/app/$websiteId'
+    | '/app/new'
     | '/auth/callback'
     | '/billing/return'
     | '/app'
@@ -93,7 +115,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/pricing'
+    | '/signin'
     | '/app/$websiteId'
+    | '/app/new'
     | '/auth/callback'
     | '/billing/return'
     | '/app/'
@@ -102,7 +126,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PricingRoute: typeof PricingRoute
+  SigninRoute: typeof SigninRoute
   AppWebsiteIdRoute: typeof AppWebsiteIdRoute
+  AppNewRoute: typeof AppNewRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   BillingReturnRoute: typeof BillingReturnRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -124,6 +150,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signin': {
+      id: '/signin'
+      path: '/signin'
+      fullPath: '/signin'
+      preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/': {
       id: '/app/'
       path: '/app'
@@ -136,6 +169,13 @@ declare module '@tanstack/react-router' {
       path: '/app/$websiteId'
       fullPath: '/app/$websiteId'
       preLoaderRoute: typeof AppWebsiteIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/new': {
+      id: '/app/new'
+      path: '/app/new'
+      fullPath: '/app/new'
+      preLoaderRoute: typeof AppNewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/callback': {
@@ -158,7 +198,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PricingRoute: PricingRoute,
+  SigninRoute: SigninRoute,
   AppWebsiteIdRoute: AppWebsiteIdRoute,
+  AppNewRoute: AppNewRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   BillingReturnRoute: BillingReturnRoute,
   AppIndexRoute: AppIndexRoute,

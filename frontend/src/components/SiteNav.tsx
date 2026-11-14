@@ -66,7 +66,7 @@ function AvatarMenu() {
 }
 
 export function SiteNav({ announce = false }: { announce?: boolean }) {
-  const { status, signIn } = useAuth();
+  const { status } = useAuth();
   return (
     <>
       {announce && <Announcement />}
@@ -86,9 +86,9 @@ export function SiteNav({ announce = false }: { announce?: boolean }) {
                 <AvatarMenu />
               </>
             ) : (
-              <button className="btn btn-primary py-2" onClick={signIn} disabled={status === "loading"}>
+              <Link to="/signin" className="btn btn-primary py-2">
                 Sign in
-              </button>
+              </Link>
             )}
           </nav>
         </div>

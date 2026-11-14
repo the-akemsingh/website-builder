@@ -17,14 +17,14 @@ function Callback() {
   useEffect(() => {
     // Backend may set a session cookie instead of returning ?token — "cookie" is a placeholder token then.
     completeSignIn(token ?? "cookie")
-      .then(() => navigate({ to: "/", replace: true }))
+      .then(() => navigate({ to: "/app", replace: true }))
       .catch(() => setFailed(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <main className="flex min-h-screen items-center justify-center px-6 text-center" role="status">
-      {failed ? <p className="text-danger">Sign-in failed. <a className="underline" href="/">Go back</a></p> : <p>Signing you in…</p>}
+      {failed ? <p className="text-danger">Sign-in failed. <a className="underline" href="/signin">Go back</a></p> : <p>Signing you in…</p>}
     </main>
   );
 }
