@@ -32,12 +32,21 @@ function Announcement() {
 function AvatarMenu() {
   const { user, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const avatarInitial = (
+    user?.name.trim().charAt(0) ||
+    user?.email.trim().charAt(0) ||
+    "?"
+  ).toUpperCase();
   useEffect(() => {
     const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, []);
+  useEffect(() => {
+    setImageFailed(false);
+  }, [user?.avatarUrl]);
   if (!user) return null;
   return (
     <div ref={ref} className="relative" onKeyDown={(e) => e.key === "Escape" && setOpen(false)}>
@@ -48,15 +57,32 @@ function AvatarMenu() {
         aria-label="Account menu"
         onClick={() => setOpen((o) => !o)}
       >
-        {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="size-full object-cover" /> : user.name[0]}
+        {user.avatarUrl && !imageFailed ? (
+          <img
+            src={user.avatarUrl}
+            alt=""
+            className="size-full object-cover"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          avatarInitial
+        )}
       </button>
       {open && (
         <div role="menu" className="panel absolute right-0 top-11 z-20 w-56 p-2 text-sm">
           <p className="truncate px-3 py-2 text-body">{user.email}</p>
-          <Link role="menuitem" to="/app" className="block rounded-xl px-3 py-2 text-foreground hover:bg-surface-2">
+          <Link
+            role="menuitem"
+            to="/app"
+            className="block rounded-xl px-3 py-2 text-foreground hover:bg-surface-2"
+          >
             My websites
           </Link>
-          <button role="menuitem" onClick={signOut} className="block w-full rounded-xl px-3 py-2 text-left text-foreground hover:bg-surface-2">
+          <button
+            role="menuitem"
+            onClick={signOut}
+            className="block w-full rounded-xl px-3 py-2 text-left text-foreground hover:bg-surface-2"
+          >
             Sign out
           </button>
         </div>
@@ -74,7 +100,11 @@ export function SiteNav({ announce = false }: { announce?: boolean }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <nav className="flex items-center gap-2 sm:gap-4" aria-label="Primary">
             <Logo />
-            <Link to="/pricing" className="rounded-full px-2 text-sm font-medium text-body hover:text-foreground" activeProps={{ className: "text-foreground" }}>
+            <Link
+              to="/pricing"
+              className="rounded-full px-2 text-sm font-medium text-body hover:text-foreground"
+              activeProps={{ className: "text-foreground" }}
+            >
               Pricing
             </Link>
           </nav>
@@ -82,7 +112,9 @@ export function SiteNav({ announce = false }: { announce?: boolean }) {
             <ThemeToggle />
             {status === "authed" ? (
               <>
-                <span className="hidden sm:inline-flex"><CreditsChip /></span>
+                <span className="hidden sm:inline-flex">
+                  <CreditsChip />
+                </span>
                 <AvatarMenu />
               </>
             ) : (

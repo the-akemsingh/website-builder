@@ -7,9 +7,11 @@ import socketMessageHandler from './ws/socketMessageHandler';
 import authRouter from './routers/authRouter';
 import authentication from './middleware/auth';
 import billingRouter, { webhookHandler } from './routers/billingRouter';
+import { logError, requestLogger } from './logger';
 
 const app = express();
 app.use(cors());
+app.use(requestLogger);
 
 const PORT = config.get("apiServerPort");
 
@@ -17,7 +19,7 @@ const PORT = config.get("apiServerPort");
 try {
     config.validate();
 } catch (error) {
-    console.error('Configuration error:', error);
+    logError('Configuration error', error);
     process.exit(1);
 }
 
@@ -32,7 +34,12 @@ app.post('/api/v1/webhooks/:provider', webhookHandler);
 app.use(express.json())
 
 const httpServer = app.listen(PORT, () => {
-    console.log("api server running on port - ", PORT)
+    console.info(JSON.stringify({
+        level: "info",
+        message: "api_server_started",
+        port: PORT,
+        environment: process.env.NODE_ENV || "development",
+    }));
 })
 
 const wss = new WebSocketServer({
