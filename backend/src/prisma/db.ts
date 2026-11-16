@@ -13,9 +13,9 @@ function getDatabaseUrl() {
   // Keep the existing `sslmode=require` intent explicit until the driver changes
   // its default to standard libpq semantics.
   const databaseUrl = new URL(url);
-  if (databaseUrl.searchParams.get('sslmode') === 'require' && !databaseUrl.searchParams.has('uselibpqcompat')) {
-    databaseUrl.searchParams.set('uselibpqcompat', 'true');
-  }
+  // if (databaseUrl.searchParams.get('sslmode') === 'require' && !databaseUrl.searchParams.has('uselibpqcompat')) {
+  //   databaseUrl.searchParams.set('uselibpqcompat', 'true');
+  // }
   return databaseUrl.toString();
 }
 

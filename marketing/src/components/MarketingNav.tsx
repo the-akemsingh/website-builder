@@ -7,9 +7,22 @@ export function MarketingNav() {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
         <nav className="flex items-center gap-4" aria-label="Primary">
           <Logo />
-          <a href="#faq" className="rounded-full px-2 text-sm font-medium text-body hover:text-foreground">FAQ</a>
+          <a
+            href="#pricing"
+            className="rounded-full px-2 text-sm font-medium text-body hover:text-foreground"
+          >
+            Pricing
+          </a>
+          <a
+            href="#faq"
+            className="rounded-full px-2 text-sm font-medium text-body hover:text-foreground"
+          >
+            FAQ
+          </a>
         </nav>
-        <a href={signInUrl} className="btn btn-primary py-2">Sign in</a>
+        <a href={signInUrl} className="btn btn-primary py-2">
+          Sign in
+        </a>
       </div>
     </header>
   );

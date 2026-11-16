@@ -8,6 +8,7 @@ RUN bun install --frozen-lockfile --production
 COPY src ./src
 COPY migrations ./migrations
 COPY prisma.config.ts ./
+COPY certs/aiven-ca.pem /app/certs/aiven-ca.pem
 
 ENV NODE_ENV=production
 ENV API_SERVER_PORT=8000
